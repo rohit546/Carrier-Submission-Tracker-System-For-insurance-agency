@@ -79,6 +79,7 @@ export default function NewSubmissionForm({ agentId }: NewSubmissionFormProps) {
           status: 'draft',
           carriers: [],
           ghlContactId: ghlContact?.id, // Store GHL contact ID for reference
+          ghlOpportunityId: ghlContact?.opportunityId, // Store GHL opportunity ID for reference
         }),
       });
 
