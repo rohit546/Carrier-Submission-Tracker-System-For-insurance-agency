@@ -17,7 +17,7 @@ export interface Carrier {
 }
 
 export interface CarrierAppetite {
-  id: string;
+  id?: string;
   carrierId: string;
   businessTypeId: string;
   playbookData?: any;
