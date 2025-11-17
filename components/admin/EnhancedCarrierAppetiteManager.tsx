@@ -118,11 +118,7 @@ export default function EnhancedCarrierAppetiteManager() {
       const res = await fetch('/api/carrier-appetite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          carrierId: editData.carrierId,
-          businessTypeId: editData.businessTypeId,
-          ...editData,
-        }),
+        body: JSON.stringify(editData),
       });
 
       if (res.ok) {
