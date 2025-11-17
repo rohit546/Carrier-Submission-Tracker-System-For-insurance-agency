@@ -12,6 +12,8 @@ interface NewSubmissionFormProps {
 
 interface GHLContact {
   id: string;
+  opportunityId?: string;
+  opportunityName?: string;
   firstName?: string;
   lastName?: string;
   name?: string;
@@ -50,8 +52,10 @@ export default function NewSubmissionForm({ agentId }: NewSubmissionFormProps) {
 
   function handleGHLSelect(contact: GHLContact) {
     setGhlContact(contact);
-    // Auto-populate business name from GHL contact
-    if (contact.companyName) {
+    // Auto-populate business name from opportunity name (priority) or contact info
+    if (contact.opportunityName) {
+      setBusinessName(contact.opportunityName);
+    } else if (contact.companyName) {
       setBusinessName(contact.companyName);
     } else if (contact.name) {
       setBusinessName(contact.name);
