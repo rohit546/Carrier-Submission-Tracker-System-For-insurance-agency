@@ -17,8 +17,17 @@ export interface Carrier {
 }
 
 export interface CarrierAppetite {
+  id: string;
   carrierId: string;
   businessTypeId: string;
+  playbookData?: any;
+  geographicRestrictions?: string[];
+  exclusions?: string[];
+  status?: string;
+  coverageDetails?: any;
+  operationalCriteria?: any;
+  contactInfo?: any;
+  notes?: string | null;
 }
 
 export interface Submission {
