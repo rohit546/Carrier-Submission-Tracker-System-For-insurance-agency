@@ -6,10 +6,10 @@ const sql = neon(process.env.DATABASE_URL!);
 export default sql;
 
 // Helper function for transactions
+// Note: Neon serverless doesn't support traditional transactions
+// For transactions, use Neon's transaction API or handle at application level
 export async function transaction<T>(
-  callback: (sql: typeof neon) => Promise<T>
+  callback: (sql: typeof sql) => Promise<T>
 ): Promise<T> {
-  // Note: Neon serverless doesn't support traditional transactions
-  // For transactions, use Neon's transaction API or handle at application level
   return callback(sql);
 }
