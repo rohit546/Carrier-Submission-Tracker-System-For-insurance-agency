@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSubmissions, createSubmission, getCurrentUser } from '@/lib/db';
+import { getSubmissions, createSubmission } from '@/lib/db';
 import { getCurrentUser as getAuthUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
