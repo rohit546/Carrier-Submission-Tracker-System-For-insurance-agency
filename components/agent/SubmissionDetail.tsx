@@ -99,9 +99,9 @@ export default function SubmissionDetail({ submission: initialSubmission }: Subm
           <h2 className="text-3xl font-bold text-black mb-2">{submission.businessName}</h2>
           <p className="text-gray-600">{getBusinessTypeName()}</p>
         </div>
-        <a href="/agent" className="btn-secondary text-sm">
+        <Link href="/agent" className="btn-secondary text-sm">
           Back to List
-        </a>
+        </Link>
       </div>
 
       {/* All Carriers */}

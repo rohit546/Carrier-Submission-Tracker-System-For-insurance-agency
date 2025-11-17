@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Submission, BusinessType, Carrier, CarrierQuote } from '@/lib/types';
 import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send } from 'lucide-react';
 
@@ -148,9 +149,9 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
           </div>
           <p className="text-gray-600">{getBusinessTypeName()}</p>
         </div>
-        <a href="/agent" className="btn-secondary text-sm">
+        <Link href="/agent" className="btn-secondary text-sm">
           Back to List
-        </a>
+        </Link>
       </div>
 
       {/* Save Button - Simple and at the end */}

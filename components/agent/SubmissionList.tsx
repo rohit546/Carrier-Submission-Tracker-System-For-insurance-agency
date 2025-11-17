@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Submission, BusinessType, Carrier } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Calendar, Edit, CheckCircle } from 'lucide-react';
 
 interface SubmissionListProps {
@@ -51,9 +52,9 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
       {submissions.length === 0 ? (
         <div className="card p-12 text-center">
           <p className="text-gray-500 mb-4">No submissions yet</p>
-          <a href="/agent/new" className="btn-primary inline-block">
+          <Link href="/agent/new" className="btn-primary inline-block">
             Create Your First Submission
-          </a>
+          </Link>
         </div>
       ) : (
         submissions.map((submission) => (

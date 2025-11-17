@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
 import SubmissionList from '@/components/agent/SubmissionList';
+import NewSubmissionButton from '@/components/agent/NewSubmissionButton';
 import { getUsers } from '@/lib/db';
 
 export default async function AgentPage() {
@@ -24,9 +25,7 @@ export default async function AgentPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold text-black">My Submissions</h2>
-          <a href="/agent/new" className="btn-primary">
-            New Submission
-          </a>
+          <NewSubmissionButton />
         </div>
         <SubmissionList agentId={user.userId} />
       </div>
