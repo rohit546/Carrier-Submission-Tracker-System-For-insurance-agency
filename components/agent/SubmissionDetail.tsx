@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Submission, BusinessType, Carrier, CarrierAppetite, CarrierQuote } from '@/lib/types';
 import { DollarSign, MessageSquare, CheckCircle } from 'lucide-react';
 
