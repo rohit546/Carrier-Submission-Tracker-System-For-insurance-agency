@@ -41,5 +41,6 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
+# In standalone mode, Next.js creates server.js in the standalone directory
 CMD ["node", "server.js"]
 
