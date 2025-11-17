@@ -14,23 +14,29 @@ function getSql(): NeonQueryFunction<false, false> {
   return sqlInstance;
 }
 
-// Export a getter function that initializes on first use
-const sql = new Proxy({} as NeonQueryFunction<false, false>, {
+// Create a template literal tag function that works with lazy initialization
+const sql = function(strings: TemplateStringsArray, ...values: any[]): any {
+  const instance = getSql();
+  return (instance as any)(strings, ...values);
+} as NeonQueryFunction<false, false>;
+
+// Use Proxy to intercept property access and method calls
+const sqlProxy = new Proxy(sql, {
   get(_target, prop) {
+    // Handle template literal calls
+    if (prop === Symbol.toPrimitive) {
+      return undefined;
+    }
     const instance = getSql();
     const value = (instance as any)[prop];
     if (typeof value === 'function') {
       return value.bind(instance);
     }
     return value;
-  },
-  apply(_target, _thisArg, argumentsList) {
-    const instance = getSql();
-    return (instance as any)(...argumentsList);
   }
-});
+}) as NeonQueryFunction<false, false>;
 
-export default sql;
+export default sqlProxy;
 
 // Helper function for transactions
 // Note: Neon serverless doesn't support traditional transactions
