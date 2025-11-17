@@ -294,20 +294,8 @@ export async function createSubmission(submission: Omit<Submission, 'id' | 'crea
 }
 
 export async function updateSubmission(id: string, updates: Partial<Submission>): Promise<Submission> {
-  const setClause: string[] = [];
-  const values: any[] = [];
-  let paramCount = 1;
-
-  if (updates.businessName !== undefined) {
-    setClause.push(`business_name = $${paramCount++}`);
-    values.push(updates.businessName);
-  }
-  if (updates.status !== undefined) {
-    setClause.push(`status = $${paramCount++}`);
-    values.push(updates.status);
-  }
+  // Update carrier quotes if provided
   if (updates.carriers !== undefined) {
-    // Update carrier quotes
     await sql`DELETE FROM carrier_quotes WHERE submission_id = ${id}`;
     for (const quote of updates.carriers) {
       await sql`
@@ -323,13 +311,32 @@ export async function updateSubmission(id: string, updates: Partial<Submission>)
     }
   }
 
-  if (setClause.length > 0) {
-    values.push(id);
-    await sql.unsafe(`
+  // Build UPDATE query conditionally
+  if (updates.businessName !== undefined && updates.status !== undefined) {
+    await sql`
       UPDATE submissions
-      SET ${setClause.join(', ')}, updated_at = NOW()
-      WHERE id = $${paramCount}
-    `, values);
+      SET business_name = ${updates.businessName}, status = ${updates.status}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.businessName !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET business_name = ${updates.businessName}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.status !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET status = ${updates.status}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.carriers !== undefined) {
+    // Only carriers were updated, still update timestamp
+    await sql`
+      UPDATE submissions
+      SET updated_at = NOW()
+      WHERE id = ${id}
+    `;
   }
 
   return getSubmission(id) as Promise<Submission>;
