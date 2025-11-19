@@ -91,7 +91,7 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
             <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4" />
-                <span>{new Date(submission.createdAt).toLocaleDateString()}</span>
+                <span>{formatDate(submission.createdAt)}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle className="w-4 h-4" />
