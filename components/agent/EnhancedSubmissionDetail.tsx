@@ -67,6 +67,22 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
       if (updatedSubmission) {
         setSubmission(updatedSubmission);
         setLocalCarriers(updatedSubmission.carriers || []);
+        
+        // If no insured info snapshot but has insured_info_id, fetch it
+        if (!updatedSubmission.insuredInfoSnapshot && updatedSubmission.insuredInfoId) {
+          try {
+            const insuredInfoResponse = await fetch(`/api/insured-info/${updatedSubmission.insuredInfoId}`);
+            if (insuredInfoResponse.ok) {
+              const insuredInfo = await insuredInfoResponse.json();
+              setSubmission(prev => ({
+                ...prev,
+                insuredInfoSnapshot: insuredInfo
+              }));
+            }
+          } catch (error) {
+            console.error('Failed to fetch insured info:', error);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -189,8 +205,23 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
     }
   }
 
-  // Get insured info from snapshot or fetch it
+  // Get insured info from snapshot
   const insuredInfo = submission.insuredInfoSnapshot as InsuredInformation | null;
+  
+  // Debug: Check if we have insured info
+  useEffect(() => {
+    if (submission.insuredInfoId) {
+      if (insuredInfo) {
+        console.log('✅ Insured info loaded:', insuredInfo.corporationName || 'Unknown');
+      } else {
+        console.log('⚠️ Insured info ID exists but snapshot is missing:', submission.insuredInfoId);
+        console.log('   Submission source:', submission.source);
+        console.log('   Will try to fetch from database...');
+      }
+    } else {
+      console.log('ℹ️ No insured info ID in submission');
+    }
+  }, [submission.insuredInfoId, insuredInfo, submission.source]);
 
   return (
     <div className="space-y-6">
