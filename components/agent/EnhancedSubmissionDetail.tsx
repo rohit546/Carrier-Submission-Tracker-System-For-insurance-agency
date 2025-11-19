@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Submission, BusinessType, Carrier, CarrierQuote } from '@/lib/types';
+import { Submission, BusinessType, Carrier, CarrierQuote, InsuredInformation } from '@/lib/types';
+import InsuredInfoSection from './InsuredInfoSection';
 import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send } from 'lucide-react';
 
 interface CarrierAppetiteDetail {
@@ -67,15 +68,68 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
     }
   }
 
+  const [selectedBusinessType, setSelectedBusinessType] = useState<string>(submission.businessTypeId || '');
+  const [loadingAppetite, setLoadingAppetite] = useState(false);
+
+  // Update selectedBusinessType when submission changes
+  useEffect(() => {
+    if (submission.businessTypeId) {
+      setSelectedBusinessType(submission.businessTypeId);
+    }
+  }, [submission.businessTypeId]);
+
+  // Load carrier appetite when business type is selected
+  useEffect(() => {
+    if (selectedBusinessType && selectedBusinessType !== submission.businessTypeId) {
+      loadCarrierAppetite(selectedBusinessType);
+    }
+  }, [selectedBusinessType]);
+
+  async function loadCarrierAppetite(businessTypeId: string) {
+    if (!businessTypeId) return;
+    setLoadingAppetite(true);
+    try {
+      const as = await fetch(`/api/carrier-appetite/business-type/${businessTypeId}`)
+        .then(r => r.json())
+        .catch(() => []);
+      setAppetites(as || []);
+    } catch (error) {
+      console.error('Failed to load carrier appetite:', error);
+    } finally {
+      setLoadingAppetite(false);
+    }
+  }
+
+  async function handleBusinessTypeChange(businessTypeId: string) {
+    setSelectedBusinessType(businessTypeId);
+    // Update submission with business type
+    try {
+      const res = await fetch(`/api/submissions/${submission.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessTypeId }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSubmission(updated);
+        await loadCarrierAppetite(businessTypeId);
+      }
+    } catch (error) {
+      console.error('Failed to update business type:', error);
+    }
+  }
+
   const getBusinessTypeName = () => {
-    return businessTypes.find(bt => bt.id === submission.businessTypeId)?.name || '';
+    const bt = businessTypes.find(bt => bt.id === (selectedBusinessType || submission.businessTypeId));
+    return bt?.name || 'Not Selected';
   };
 
   const getSuggestedCarriers = () => {
+    if (!selectedBusinessType) return [];
     // Get carriers that have appetite for this business type (active, limited, unresponsive - but NOT no_appetite)
     const appetiteCarriers = appetites
       .filter(a => 
-        a.businessTypeId === submission.businessTypeId && 
+        a.businessTypeId === selectedBusinessType && 
         a.status !== 'no_appetite'
       )
       .map(a => a.carrierId);
@@ -84,7 +138,8 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   };
 
   const getCarrierAppetite = (carrierId: string): CarrierAppetiteDetail | null => {
-    return appetites.find(a => a.carrierId === carrierId && a.businessTypeId === submission.businessTypeId) || null;
+    if (!selectedBusinessType) return null;
+    return appetites.find(a => a.carrierId === carrierId && a.businessTypeId === selectedBusinessType) || null;
   };
 
   const getCarrierQuote = (carrierId: string): CarrierQuote | null => {
@@ -134,6 +189,9 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
 
   const hasQuotedCarriers = localCarriers.some(c => c.quoted);
 
+  // Get insured info from snapshot or fetch it
+  const insuredInfo = submission.insuredInfoSnapshot as InsuredInformation | null;
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between mb-6">
@@ -152,6 +210,34 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         <Link href="/agent" className="btn-secondary text-sm">
           Back to List
         </Link>
+      </div>
+
+      {/* Insured Information Section - Show First */}
+      {insuredInfo && (
+        <InsuredInfoSection insuredInfo={insuredInfo} />
+      )}
+
+      {/* Business Type Selection - Required before showing carriers */}
+      <div className="card p-6">
+        <h3 className="text-lg font-semibold text-black mb-4">Select Business Type</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Please select a business type to view available carriers and their appetite.
+        </p>
+        <select
+          value={selectedBusinessType}
+          onChange={(e) => handleBusinessTypeChange(e.target.value)}
+          className="w-full md:w-auto px-4 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-black"
+        >
+          <option value="">-- Select Business Type --</option>
+          {businessTypes.map((bt) => (
+            <option key={bt.id} value={bt.id}>
+              {bt.name}
+            </option>
+          ))}
+        </select>
+        {loadingAppetite && (
+          <p className="text-sm text-gray-500 mt-2">Loading carrier appetite...</p>
+        )}
       </div>
 
       {/* Save Button - Simple and at the end */}
@@ -183,29 +269,30 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         </div>
       )}
 
-      {/* Carriers with Full Appetite Information */}
-      <div className="card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-black">All Carriers</h3>
-          <div className="flex items-center gap-4 text-xs text-gray-600">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              Active
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-              Limited
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-              Unresponsive
-            </span>
+      {/* Carriers with Full Appetite Information - Only show if business type selected */}
+      {selectedBusinessType ? (
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-black">Available Carriers</h3>
+            <div className="flex items-center gap-4 text-xs text-gray-600">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                Active
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                Limited
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                Unresponsive
+              </span>
+            </div>
           </div>
-        </div>
-        
-        {getSuggestedCarriers().length === 0 ? (
-          <p className="text-gray-500 text-sm">No carriers available for this business type</p>
-        ) : (
+          
+          {getSuggestedCarriers().length === 0 ? (
+            <p className="text-gray-500 text-sm">No carriers available for this business type</p>
+          ) : (
           <div className="space-y-6">
             {getSuggestedCarriers().map((carrier) => {
               const appetite = getCarrierAppetite(carrier.id);

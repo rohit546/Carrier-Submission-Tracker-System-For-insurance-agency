@@ -30,15 +30,58 @@ export interface CarrierAppetite {
   notes?: string | null;
 }
 
+export interface InsuredInformation {
+  id: string;
+  uniqueIdentifier?: string;
+  ownershipType?: string;
+  corporationName: string;
+  contactName?: string;
+  contactNumber?: string;
+  contactEmail?: string;
+  leadSource?: string;
+  proposedEffectiveDate?: string;
+  priorCarrier?: string;
+  targetPremium?: number;
+  applicantIs?: string;
+  operationDescription?: string;
+  dba?: string;
+  address?: string;
+  hoursOfOperation?: string;
+  noOfMPOs?: number;
+  constructionType?: string;
+  yearsExpInBusiness?: number;
+  yearsAtLocation?: number;
+  yearBuilt?: number;
+  yearLatestUpdate?: number;
+  totalSqFootage?: number;
+  leasedOutSpace?: string;
+  protectionClass?: string;
+  additionalInsured?: string;
+  alarmInfo?: any;
+  fireInfo?: any;
+  propertyCoverage?: any;
+  generalLiability?: any;
+  workersCompensation?: any;
+  source?: string;
+  eformSubmissionId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Submission {
   id: string;
   businessName: string;
-  businessTypeId: string;
+  businessTypeId?: string | null; // Now nullable for eform submissions
   agentId: string;
   createdAt: string;
   updatedAt: string;
   status: 'draft' | 'quoted' | 'bound' | 'submitted';
   carriers: CarrierQuote[];
+  insuredInfoId?: string;
+  insuredInfoSnapshot?: InsuredInformation | any;
+  source?: 'manual' | 'eform' | 'ghl';
+  eformSubmissionId?: string;
+  publicAccessToken?: string;
 }
 
 export interface CarrierQuote {

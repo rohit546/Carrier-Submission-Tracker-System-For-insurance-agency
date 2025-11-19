@@ -240,8 +240,8 @@ export async function getSubmissions(): Promise<Submission[]> {
   }));
 }
 
-export async function getSubmission(id: string): Promise<Submission | null> {
-  const rows = await sql`
+export async function getSubmission(id: string, publicToken?: string): Promise<Submission | null> {
+  let query = sql`
     SELECT s.*, 
            COALESCE(
              json_agg(
@@ -258,10 +258,46 @@ export async function getSubmission(id: string): Promise<Submission | null> {
     FROM submissions s
     LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
     WHERE s.id = ${id}
-    GROUP BY s.id
   `;
+  
+  // If public token provided, verify it matches
+  if (publicToken) {
+    query = sql`
+      SELECT s.*, 
+             COALESCE(
+               json_agg(
+                 json_build_object(
+                   'carrierId', cq.carrier_id,
+                   'quoted', cq.quoted,
+                   'amount', cq.amount,
+                   'remarks', cq.remarks,
+                   'selected', cq.selected
+                 )
+               ) FILTER (WHERE cq.id IS NOT NULL),
+               '[]'::json
+             ) as carriers
+      FROM submissions s
+      LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
+      WHERE s.id = ${id} AND s.public_access_token = ${publicToken}
+    `;
+  }
+  
+  const rows = await query;
   if (rows.length === 0) return null;
   const row = rows[0];
+  
+  // Parse insured info snapshot if it exists
+  let insuredInfoSnapshot = null;
+  if (row.insured_info_snapshot) {
+    try {
+      insuredInfoSnapshot = typeof row.insured_info_snapshot === 'string' 
+        ? JSON.parse(row.insured_info_snapshot)
+        : row.insured_info_snapshot;
+    } catch (e) {
+      console.error('Error parsing insured_info_snapshot:', e);
+    }
+  }
+  
   return {
     id: row.id,
     businessName: row.business_name,
@@ -269,8 +305,58 @@ export async function getSubmission(id: string): Promise<Submission | null> {
     agentId: row.agent_id,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
-    status: row.status as 'draft' | 'quoted' | 'bound',
+    status: row.status as 'draft' | 'quoted' | 'bound' | 'submitted',
     carriers: (row.carriers || []) as CarrierQuote[],
+    insuredInfoId: row.insured_info_id,
+    insuredInfoSnapshot: insuredInfoSnapshot,
+    source: row.source as 'manual' | 'eform' | 'ghl' | undefined,
+    eformSubmissionId: row.eform_submission_id,
+    publicAccessToken: row.public_access_token,
+  };
+}
+
+export async function getInsuredInformation(insuredInfoId: string) {
+  const rows = await sql`
+    SELECT * FROM insured_information WHERE id = ${insuredInfoId}
+  `;
+  if (rows.length === 0) return null;
+  const row = rows[0];
+  return {
+    id: row.id,
+    uniqueIdentifier: row.unique_identifier,
+    ownershipType: row.ownership_type,
+    corporationName: row.corporation_name,
+    contactName: row.contact_name,
+    contactNumber: row.contact_number,
+    contactEmail: row.contact_email,
+    leadSource: row.lead_source,
+    proposedEffectiveDate: row.proposed_effective_date?.toISOString(),
+    priorCarrier: row.prior_carrier,
+    targetPremium: row.target_premium ? parseFloat(row.target_premium) : null,
+    applicantIs: row.applicant_is,
+    operationDescription: row.operation_description,
+    dba: row.dba,
+    address: row.address,
+    hoursOfOperation: row.hours_of_operation,
+    noOfMPOs: row.no_of_mpos,
+    constructionType: row.construction_type,
+    yearsExpInBusiness: row.years_exp_in_business,
+    yearsAtLocation: row.years_at_location,
+    yearBuilt: row.year_built,
+    yearLatestUpdate: row.year_latest_update,
+    totalSqFootage: row.total_sq_footage,
+    leasedOutSpace: row.leased_out_space,
+    protectionClass: row.protection_class,
+    additionalInsured: row.additional_insured,
+    alarmInfo: row.alarm_info,
+    fireInfo: row.fire_info,
+    propertyCoverage: row.property_coverage,
+    generalLiability: row.general_liability,
+    workersCompensation: row.workers_compensation,
+    source: row.source,
+    eformSubmissionId: row.eform_submission_id,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
   };
 }
 
@@ -312,24 +398,42 @@ export async function updateSubmission(id: string, updates: Partial<Submission>)
   }
 
   // Build UPDATE query conditionally
-  if (updates.businessName !== undefined && updates.status !== undefined) {
-    await sql`
+  const updateFields: string[] = [];
+  const updateValues: any[] = [];
+  
+  if (updates.businessName !== undefined) {
+    updateFields.push('business_name');
+    updateValues.push(updates.businessName);
+  }
+  
+  if (updates.status !== undefined) {
+    updateFields.push('status');
+    updateValues.push(updates.status);
+  }
+  
+  if (updates.businessTypeId !== undefined) {
+    updateFields.push('business_type_id');
+    updateValues.push(updates.businessTypeId || null);
+  }
+  
+  // Always update timestamp
+  updateFields.push('updated_at');
+  updateValues.push(new Date());
+  
+  if (updateFields.length > 1) { // More than just updated_at
+    // Build dynamic UPDATE query
+    const setClause = updateFields.map((field, idx) => {
+      if (field === 'updated_at') {
+        return `${field} = NOW()`;
+      }
+      return `${field} = $${idx + 1}`;
+    }).join(', ');
+    
+    await sql.unsafe(`
       UPDATE submissions
-      SET business_name = ${updates.businessName}, status = ${updates.status}, updated_at = NOW()
-      WHERE id = ${id}
-    `;
-  } else if (updates.businessName !== undefined) {
-    await sql`
-      UPDATE submissions
-      SET business_name = ${updates.businessName}, updated_at = NOW()
-      WHERE id = ${id}
-    `;
-  } else if (updates.status !== undefined) {
-    await sql`
-      UPDATE submissions
-      SET status = ${updates.status}, updated_at = NOW()
-      WHERE id = ${id}
-    `;
+      SET ${setClause}
+      WHERE id = $${updateFields.length + 1}
+    `, [...updateValues.slice(0, -1), id]);
   } else if (updates.carriers !== undefined) {
     // Only carriers were updated, still update timestamp
     await sql`
