@@ -250,8 +250,8 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
                         <span className="text-gray-600">{key}:</span>
                         {typeof value === 'object' && value !== null ? (
                           <div className="ml-4">
-                            {value.monthly && <div>Monthly: ${value.monthly.toLocaleString()}</div>}
-                            {value.yearly && <div>Yearly: ${value.yearly.toLocaleString()}</div>}
+                            {(value as any).monthly && <div>Monthly: ${(value as any).monthly.toLocaleString()}</div>}
+                            {(value as any).yearly && <div>Yearly: ${(value as any).yearly.toLocaleString()}</div>}
                           </div>
                         ) : (
                           <span className="text-black ml-2">{String(value)}</span>

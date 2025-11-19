@@ -210,75 +210,134 @@ export async function deleteCarrierAppetite(carrierId: string, businessTypeId: s
 // Submissions
 export async function getSubmissions(): Promise<Submission[]> {
   const rows = await sql`
-    SELECT s.*, 
-           COALESCE(
-             json_agg(
-               json_build_object(
-                 'carrierId', cq.carrier_id,
-                 'quoted', cq.quoted,
-                 'amount', cq.amount,
-                 'remarks', cq.remarks,
-                 'selected', cq.selected
-               )
-             ) FILTER (WHERE cq.id IS NOT NULL),
-             '[]'::json
-           ) as carriers
+    SELECT 
+      s.id,
+      s.business_name,
+      s.business_type_id,
+      s.agent_id,
+      s.created_at,
+      s.updated_at,
+      s.status,
+      s.insured_info_id,
+      s.insured_info_snapshot,
+      s.source,
+      s.eform_submission_id,
+      s.public_access_token,
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'carrierId', cq.carrier_id,
+            'quoted', cq.quoted,
+            'amount', cq.amount,
+            'remarks', cq.remarks,
+            'selected', cq.selected
+          )
+        ) FILTER (WHERE cq.id IS NOT NULL),
+        '[]'::json
+      ) as carriers
     FROM submissions s
     LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
-    GROUP BY s.id
+    GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token
     ORDER BY s.created_at DESC
   `;
-  return rows.map(row => ({
-    id: row.id,
-    businessName: row.business_name,
-    businessTypeId: row.business_type_id,
-    agentId: row.agent_id,
-    createdAt: row.created_at.toISOString(),
-    updatedAt: row.updated_at.toISOString(),
-    status: row.status as 'draft' | 'quoted' | 'bound',
-    carriers: (row.carriers || []) as CarrierQuote[],
-  }));
+  return rows.map(row => {
+    // Parse insured info snapshot if it exists
+    let insuredInfoSnapshot = null;
+    if (row.insured_info_snapshot) {
+      try {
+        insuredInfoSnapshot = typeof row.insured_info_snapshot === 'string' 
+          ? JSON.parse(row.insured_info_snapshot)
+          : row.insured_info_snapshot;
+      } catch (e) {
+        console.error('Error parsing insured_info_snapshot:', e);
+      }
+    }
+    
+    return {
+      id: row.id,
+      businessName: row.business_name,
+      businessTypeId: row.business_type_id,
+      agentId: row.agent_id,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+      status: row.status as 'draft' | 'quoted' | 'bound' | 'submitted',
+      carriers: (row.carriers || []) as CarrierQuote[],
+      insuredInfoId: row.insured_info_id,
+      insuredInfoSnapshot: insuredInfoSnapshot,
+      source: row.source as 'manual' | 'eform' | 'ghl' | undefined,
+      eformSubmissionId: row.eform_submission_id,
+      publicAccessToken: row.public_access_token,
+    };
+  });
 }
 
 export async function getSubmission(id: string, publicToken?: string): Promise<Submission | null> {
-  let query = sql`
-    SELECT s.*, 
-           COALESCE(
-             json_agg(
-               json_build_object(
-                 'carrierId', cq.carrier_id,
-                 'quoted', cq.quoted,
-                 'amount', cq.amount,
-                 'remarks', cq.remarks,
-                 'selected', cq.selected
-               )
-             ) FILTER (WHERE cq.id IS NOT NULL),
-             '[]'::json
-           ) as carriers
-    FROM submissions s
-    LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
-    WHERE s.id = ${id}
-  `;
+  let query;
   
   // If public token provided, verify it matches
   if (publicToken) {
     query = sql`
-      SELECT s.*, 
-             COALESCE(
-               json_agg(
-                 json_build_object(
-                   'carrierId', cq.carrier_id,
-                   'quoted', cq.quoted,
-                   'amount', cq.amount,
-                   'remarks', cq.remarks,
-                   'selected', cq.selected
-                 )
-               ) FILTER (WHERE cq.id IS NOT NULL),
-               '[]'::json
-             ) as carriers
+      SELECT 
+        s.id,
+        s.business_name,
+        s.business_type_id,
+        s.agent_id,
+        s.created_at,
+        s.updated_at,
+        s.status,
+        s.insured_info_id,
+        s.insured_info_snapshot,
+        s.source,
+        s.eform_submission_id,
+        s.public_access_token,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'carrierId', cq.carrier_id,
+              'quoted', cq.quoted,
+              'amount', cq.amount,
+              'remarks', cq.remarks,
+              'selected', cq.selected
+            )
+          ) FILTER (WHERE cq.id IS NOT NULL),
+          '[]'::json
+        ) as carriers
       FROM submissions s
       LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
       WHERE s.id = ${id} AND s.public_access_token = ${publicToken}
+      GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token
+    `;
+  } else {
+    query = sql`
+      SELECT 
+        s.id,
+        s.business_name,
+        s.business_type_id,
+        s.agent_id,
+        s.created_at,
+        s.updated_at,
+        s.status,
+        s.insured_info_id,
+        s.insured_info_snapshot,
+        s.source,
+        s.eform_submission_id,
+        s.public_access_token,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'carrierId', cq.carrier_id,
+              'quoted', cq.quoted,
+              'amount', cq.amount,
+              'remarks', cq.remarks,
+              'selected', cq.selected
+            )
+          ) FILTER (WHERE cq.id IS NOT NULL),
+          '[]'::json
+        ) as carriers
+      FROM submissions s
+      LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
+      WHERE s.id = ${id}
+      GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token
     `;
   }
   
@@ -398,42 +457,55 @@ export async function updateSubmission(id: string, updates: Partial<Submission>)
   }
 
   // Build UPDATE query conditionally
-  const updateFields: string[] = [];
-  const updateValues: any[] = [];
-  
-  if (updates.businessName !== undefined) {
-    updateFields.push('business_name');
-    updateValues.push(updates.businessName);
-  }
-  
-  if (updates.status !== undefined) {
-    updateFields.push('status');
-    updateValues.push(updates.status);
-  }
-  
-  if (updates.businessTypeId !== undefined) {
-    updateFields.push('business_type_id');
-    updateValues.push(updates.businessTypeId || null);
-  }
-  
-  // Always update timestamp
-  updateFields.push('updated_at');
-  updateValues.push(new Date());
-  
-  if (updateFields.length > 1) { // More than just updated_at
-    // Build dynamic UPDATE query
-    const setClause = updateFields.map((field, idx) => {
-      if (field === 'updated_at') {
-        return `${field} = NOW()`;
-      }
-      return `${field} = $${idx + 1}`;
-    }).join(', ');
-    
-    await sql.unsafe(`
+  if (updates.businessName !== undefined && updates.status !== undefined && updates.businessTypeId !== undefined) {
+    await sql`
       UPDATE submissions
-      SET ${setClause}
-      WHERE id = $${updateFields.length + 1}
-    `, [...updateValues.slice(0, -1), id]);
+      SET business_name = ${updates.businessName}, 
+          status = ${updates.status}, 
+          business_type_id = ${updates.businessTypeId || null},
+          updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.businessName !== undefined && updates.status !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET business_name = ${updates.businessName}, status = ${updates.status}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.businessName !== undefined && updates.businessTypeId !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET business_name = ${updates.businessName}, 
+          business_type_id = ${updates.businessTypeId || null},
+          updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.status !== undefined && updates.businessTypeId !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET status = ${updates.status}, 
+          business_type_id = ${updates.businessTypeId || null},
+          updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.businessName !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET business_name = ${updates.businessName}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.status !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET status = ${updates.status}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.businessTypeId !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET business_type_id = ${updates.businessTypeId || null}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
   } else if (updates.carriers !== undefined) {
     // Only carriers were updated, still update timestamp
     await sql`

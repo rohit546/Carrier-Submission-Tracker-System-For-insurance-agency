@@ -145,20 +145,30 @@ const handleSubmitApplication = async () => {
   // 2. Save to insured_information table
   const insuredInfo = await saveToInsuredInformation(formData);
   
-  // 3. Create submission
+  // 3. Get default agent (or assign to specific agent)
+  // IMPORTANT: Get the first agent from database, or assign to a specific agent
+  const agent = await getDefaultAgent(); // You need to implement this
+  
+  // 4. Create submission in Coversheet database
+  // This will automatically appear in Coversheet's "My Submissions" list
   const submission = await createSubmission({
     insuredInfoId: insuredInfo.id,
     businessName: formData.corporationName,
+    agentId: agent.id, // Assign to an agent so it appears in their list
+    status: 'draft',
+    source: 'eform', // IMPORTANT: Mark as 'eform' so it shows "NEW" tag
     eformSubmissionId: yourEformSubmissionId,
-    publicAccessToken: generateUUID(), // Store this!
+    publicAccessToken: generateUUID(),
+    insuredInfoSnapshot: insuredInfo, // Store snapshot
   });
   
-  // 4. Store submission.id and submission.publicAccessToken for later use
+  // 5. Store submission.id and submission.publicAccessToken for later use
   setSubmissionId(submission.id);
   setPublicAccessToken(submission.publicAccessToken);
   
-  // 5. Show success message
-  // 6. Show "Download PDF" and "Start Quote" buttons
+  // 6. Show success message
+  // 7. Show "Download PDF" and "Start Quote" buttons
+  // NOTE: Submission is now automatically in Coversheet with "NEW" tag!
 };
 
 // "Start Quote" button handler

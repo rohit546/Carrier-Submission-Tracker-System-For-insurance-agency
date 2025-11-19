@@ -47,6 +47,17 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
     }
   };
 
+  const isNewSubmission = (submission: Submission) => {
+    // Show "NEW" tag if:
+    // 1. Source is 'eform' (from eform)
+    // 2. Created within last 48 hours
+    if (submission.source !== 'eform') return false;
+    
+    const createdDate = new Date(submission.createdAt);
+    const hoursSinceCreation = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60);
+    return hoursSinceCreation < 48;
+  };
+
   return (
     <div className="space-y-4">
       {submissions.length === 0 ? (
@@ -58,15 +69,21 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
         </div>
       ) : (
         submissions.map((submission) => (
-          <div key={submission.id} className="card p-6 hover:shadow-md transition-shadow">
+          <div key={submission.id} className="card p-6 hover:shadow-md transition-shadow relative">
+            {/* NEW Tag - Top Right */}
+            {isNewSubmission(submission) && (
+              <span className="absolute top-4 right-4 badge bg-blue-600 text-white text-xs font-bold z-10">
+                NEW
+              </span>
+            )}
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-black mb-1">
                   {submission.businessName}
                 </h3>
-                <p className="text-sm text-gray-600">{getBusinessTypeName(submission.businessTypeId)}</p>
+                <p className="text-sm text-gray-600">{getBusinessTypeName(submission.businessTypeId || '')}</p>
               </div>
-              <span className={`badge ${getStatusColor(submission.status)}`}>
+              <span className={`badge ${getStatusColor(submission.status)} ${isNewSubmission(submission) ? 'mr-12' : ''}`}>
                 {submission.status.toUpperCase()}
               </span>
             </div>

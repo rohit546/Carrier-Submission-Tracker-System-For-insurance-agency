@@ -32,6 +32,8 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [localCarriers, setLocalCarriers] = useState(submission.carriers);
+  const [selectedBusinessType, setSelectedBusinessType] = useState<string>(submission.businessTypeId || '');
+  const [loadingAppetite, setLoadingAppetite] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -53,12 +55,15 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
       setBusinessTypes(bts);
       setCarriers(cs);
       
-      // Load carrier appetite for this specific business type
-      const as = await fetch(`/api/carrier-appetite/business-type/${initialSubmission.businessTypeId}`)
-        .then(r => r.json())
-        .catch(() => []);
+      // Load carrier appetite for this specific business type (only if business type exists)
+      if (initialSubmission.businessTypeId) {
+        const as = await fetch(`/api/carrier-appetite/business-type/${initialSubmission.businessTypeId}`)
+          .then(r => r.json())
+          .catch(() => []);
+        
+        setAppetites(as || []);
+      }
       
-      setAppetites(as || []);
       if (updatedSubmission) {
         setSubmission(updatedSubmission);
         setLocalCarriers(updatedSubmission.carriers || []);
@@ -67,9 +72,6 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
       console.error('Failed to load data:', error);
     }
   }
-
-  const [selectedBusinessType, setSelectedBusinessType] = useState<string>(submission.businessTypeId || '');
-  const [loadingAppetite, setLoadingAppetite] = useState(false);
 
   // Update selectedBusinessType when submission changes
   useEffect(() => {
@@ -187,8 +189,6 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
     }
   }
 
-  const hasQuotedCarriers = localCarriers.some(c => c.quoted);
-
   // Get insured info from snapshot or fetch it
   const insuredInfo = submission.insuredInfoSnapshot as InsuredInformation | null;
 
@@ -293,7 +293,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
           {getSuggestedCarriers().length === 0 ? (
             <p className="text-gray-500 text-sm">No carriers available for this business type</p>
           ) : (
-          <div className="space-y-6">
+            <div className="space-y-6">
             {getSuggestedCarriers().map((carrier) => {
               const appetite = getCarrierAppetite(carrier.id);
               const quote = getCarrierQuote(carrier.id);
@@ -474,8 +474,15 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
               );
             })}
           </div>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="card p-6 bg-gray-50">
+          <p className="text-gray-600 text-center">
+            Please select a business type above to view available carriers.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -15,7 +15,9 @@
     "cleanup": "ts-node scripts/cleanup-business-types.ts",
     "cleanup-simple": "ts-node scripts/cleanup-simple.ts",
     "cleanup-lobs": "ts-node scripts/cleanup-to-two-lobs.ts",
-    "test-db": "ts-node scripts/test-connection.ts"
+    "test-db": "ts-node scripts/test-connection.ts",
+    "check-migration": "ts-node scripts/check-migration.ts",
+    "run-migration": "ts-node scripts/run-migration.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.8.0",
