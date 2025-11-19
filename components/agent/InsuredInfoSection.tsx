@@ -208,64 +208,64 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
           
           <div>
             <label className="text-sm font-medium text-gray-600">Lead Source</label>
-            <p className="text-black text-sm">{insuredInfo.leadSource || 'N/A'}</p>
+            <p className="text-black text-sm">{normalizedInfo.leadSource || 'N/A'}</p>
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-600">Prior Carrier</label>
-            <p className="text-black text-sm">{insuredInfo.priorCarrier || 'N/A'}</p>
+            <p className="text-black text-sm">{normalizedInfo.priorCarrier || 'N/A'}</p>
           </div>
 
-          {insuredInfo.targetPremium && (
+          {normalizedInfo.targetPremium && (
             <div className="flex items-start gap-2">
               <DollarSign className="w-4 h-4 text-gray-400 mt-1" />
               <div>
                 <label className="text-sm font-medium text-gray-600">Target Premium</label>
-                <p className="text-black">${insuredInfo.targetPremium.toLocaleString()}</p>
+                <p className="text-black">${normalizedInfo.targetPremium.toLocaleString()}</p>
               </div>
             </div>
           )}
 
-          {insuredInfo.proposedEffectiveDate && (
+          {normalizedInfo.proposedEffectiveDate && (
             <div className="flex items-start gap-2">
               <Calendar className="w-4 h-4 text-gray-400 mt-1" />
               <div>
                 <label className="text-sm font-medium text-gray-600">Proposed Effective Date</label>
                 <p className="text-black text-sm">
-                  {new Date(insuredInfo.proposedEffectiveDate).toLocaleDateString()}
+                  {new Date(normalizedInfo.proposedEffectiveDate).toLocaleDateString()}
                 </p>
               </div>
             </div>
           )}
 
-          {insuredInfo.additionalInsured && (
+          {normalizedInfo.additionalInsured && (
             <div>
               <label className="text-sm font-medium text-gray-600">Additional Insured</label>
-              <p className="text-black text-sm">{insuredInfo.additionalInsured}</p>
+              <p className="text-black text-sm">{normalizedInfo.additionalInsured}</p>
             </div>
           )}
 
           {/* Security Systems */}
-          {(insuredInfo.alarmInfo || insuredInfo.fireInfo) && (
+          {(normalizedInfo.alarmInfo || normalizedInfo.fireInfo) && (
             <div>
               <label className="text-sm font-medium text-gray-600">Security Systems</label>
               <div className="mt-2 space-y-1">
-                {insuredInfo.alarmInfo && Object.keys(insuredInfo.alarmInfo).length > 0 && (
+                {normalizedInfo.alarmInfo && Object.keys(normalizedInfo.alarmInfo).length > 0 && (
                   <div>
                     <span className="text-xs font-medium text-gray-600">Alarm: </span>
                     <span className="text-xs text-black">
-                      {Object.entries(insuredInfo.alarmInfo)
+                      {Object.entries(normalizedInfo.alarmInfo)
                         .filter(([_, v]) => v === true)
                         .map(([k]) => k)
                         .join(', ')}
                     </span>
                   </div>
                 )}
-                {insuredInfo.fireInfo && Object.keys(insuredInfo.fireInfo).length > 0 && (
+                {normalizedInfo.fireInfo && Object.keys(normalizedInfo.fireInfo).length > 0 && (
                   <div>
                     <span className="text-xs font-medium text-gray-600">Fire: </span>
                     <span className="text-xs text-black">
-                      {Object.entries(insuredInfo.fireInfo)
+                      {Object.entries(normalizedInfo.fireInfo)
                         .filter(([_, v]) => v === true)
                         .map(([k]) => k)
                         .join(', ')}
@@ -279,7 +279,7 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
       </div>
 
       {/* Coverage Information (Collapsible) */}
-      {(insuredInfo.propertyCoverage || insuredInfo.generalLiability || insuredInfo.workersCompensation) && (
+      {(normalizedInfo.propertyCoverage || normalizedInfo.generalLiability || normalizedInfo.workersCompensation) && (
         <div className="mt-6 pt-6 border-t border-gray-200">
           <details className="group">
             <summary className="cursor-pointer text-lg font-semibold text-black flex items-center gap-2">
@@ -287,11 +287,11 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
               Coverage Details
             </summary>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
-              {insuredInfo.propertyCoverage && Object.keys(insuredInfo.propertyCoverage).length > 0 && (
+              {normalizedInfo.propertyCoverage && Object.keys(normalizedInfo.propertyCoverage).length > 0 && (
                 <div>
                   <h4 className="font-semibold text-black mb-2">Property Coverage</h4>
                   <div className="space-y-1 text-sm">
-                    {Object.entries(insuredInfo.propertyCoverage).map(([key, value]) => (
+                    {Object.entries(normalizedInfo.propertyCoverage).map(([key, value]) => (
                       <div key={key} className="flex justify-between">
                         <span className="text-gray-600">{key}:</span>
                         <span className="text-black">
@@ -303,11 +303,11 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
                 </div>
               )}
 
-              {insuredInfo.generalLiability && Object.keys(insuredInfo.generalLiability).length > 0 && (
+              {normalizedInfo.generalLiability && Object.keys(normalizedInfo.generalLiability).length > 0 && (
                 <div>
                   <h4 className="font-semibold text-black mb-2">General Liability</h4>
                   <div className="space-y-1 text-sm">
-                    {Object.entries(insuredInfo.generalLiability).map(([key, value]) => (
+                    {Object.entries(normalizedInfo.generalLiability).map(([key, value]) => (
                       <div key={key}>
                         <span className="text-gray-600">{key}:</span>
                         {typeof value === 'object' && value !== null ? (
@@ -324,11 +324,11 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
                 </div>
               )}
 
-              {insuredInfo.workersCompensation && Object.keys(insuredInfo.workersCompensation).length > 0 && (
+              {normalizedInfo.workersCompensation && Object.keys(normalizedInfo.workersCompensation).length > 0 && (
                 <div>
                   <h4 className="font-semibold text-black mb-2">Worker's Compensation</h4>
                   <div className="space-y-1 text-sm">
-                    {Object.entries(insuredInfo.workersCompensation).map(([key, value]) => (
+                    {Object.entries(normalizedInfo.workersCompensation).map(([key, value]) => (
                       <div key={key} className="flex justify-between">
                         <span className="text-gray-600">{key}:</span>
                         <span className="text-black">{String(value)}</span>
