@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
+import sql from '@/lib/db/connection';
 import { randomUUID } from 'crypto';
-
-const sql = neon(process.env.DATABASE_URL!);
 
 // API Key for eform authentication (set in .env.local)
 const EFORM_API_KEY = process.env.EFORM_API_KEY || 'default-eform-key-change-in-production';
