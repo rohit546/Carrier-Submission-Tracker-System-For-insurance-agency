@@ -1,7 +1,16 @@
-import 'dotenv/config';
 import { neon } from '@neondatabase/serverless';
+import { config } from 'dotenv';
+import { resolve } from 'path';
 
-const sql = neon(process.env.DATABASE_URL!);
+// Load environment variables
+config({ path: resolve(process.cwd(), '.env.local') });
+
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL not found in .env.local');
+  process.exit(1);
+}
+
+const sql = neon(process.env.DATABASE_URL);
 
 interface BusinessType {
   id: string;
@@ -29,6 +38,7 @@ async function cleanupToTwoLOBs() {
     });
 
     // Step 2: Define the business types we want to keep
+    // User wants: 1) C-Store/Grocery Store, 2) Gas Station (18 hours), 3) Gas Station (24 hours)
     const keepBusinessTypes = [
       'C-Store/Grocery Store',
       'Gas Station (18 hours)',
