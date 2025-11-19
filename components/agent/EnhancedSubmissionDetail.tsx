@@ -244,9 +244,15 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
       </div>
 
       {/* Insured Information Section - Show First */}
-      {insuredInfo && (
+      {insuredInfo ? (
         <InsuredInfoSection insuredInfo={insuredInfo} />
-      )}
+      ) : submission.insuredInfoId ? (
+        <div className="card p-6 mb-6 bg-yellow-50 border border-yellow-200">
+          <p className="text-sm text-yellow-800">
+            ⚠️ Insured information is being loaded... If this message persists, the data may not have been saved properly.
+          </p>
+        </div>
+      ) : null}
 
       {/* Business Type Selection - Required before showing carriers */}
       <div className="card p-6">

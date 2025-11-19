@@ -193,9 +193,57 @@ export async function POST(request: NextRequest) {
     }
 
     // Get snapshot of insured info for historical reference
-    const insuredSnapshot = await sql`
+    const insuredSnapshotRows = await sql`
       SELECT * FROM insured_information WHERE id = ${insuredInfoId}
     `;
+    
+    if (insuredSnapshotRows.length === 0) {
+      return NextResponse.json(
+        { error: 'Failed to retrieve insured information' },
+        { status: 500 }
+      );
+    }
+    
+    const insuredSnapshot = insuredSnapshotRows[0];
+    
+    // Format snapshot properly for JSONB storage
+    const snapshotData = {
+      id: insuredSnapshot.id,
+      uniqueIdentifier: insuredSnapshot.unique_identifier,
+      ownershipType: insuredSnapshot.ownership_type,
+      corporationName: insuredSnapshot.corporation_name,
+      contactName: insuredSnapshot.contact_name,
+      contactNumber: insuredSnapshot.contact_number,
+      contactEmail: insuredSnapshot.contact_email,
+      leadSource: insuredSnapshot.lead_source,
+      proposedEffectiveDate: insuredSnapshot.proposed_effective_date?.toISOString(),
+      priorCarrier: insuredSnapshot.prior_carrier,
+      targetPremium: insuredSnapshot.target_premium ? parseFloat(insuredSnapshot.target_premium) : null,
+      applicantIs: insuredSnapshot.applicant_is,
+      operationDescription: insuredSnapshot.operation_description,
+      dba: insuredSnapshot.dba,
+      address: insuredSnapshot.address,
+      hoursOfOperation: insuredSnapshot.hours_of_operation,
+      noOfMPOs: insuredSnapshot.no_of_mpos,
+      constructionType: insuredSnapshot.construction_type,
+      yearsExpInBusiness: insuredSnapshot.years_exp_in_business,
+      yearsAtLocation: insuredSnapshot.years_at_location,
+      yearBuilt: insuredSnapshot.year_built,
+      yearLatestUpdate: insuredSnapshot.year_latest_update,
+      totalSqFootage: insuredSnapshot.total_sq_footage,
+      leasedOutSpace: insuredSnapshot.leased_out_space,
+      protectionClass: insuredSnapshot.protection_class,
+      additionalInsured: insuredSnapshot.additional_insured,
+      alarmInfo: insuredSnapshot.alarm_info,
+      fireInfo: insuredSnapshot.fire_info,
+      propertyCoverage: insuredSnapshot.property_coverage,
+      generalLiability: insuredSnapshot.general_liability,
+      workersCompensation: insuredSnapshot.workers_compensation,
+      source: insuredSnapshot.source,
+      eformSubmissionId: insuredSnapshot.eform_submission_id,
+      createdAt: insuredSnapshot.created_at?.toISOString(),
+      updatedAt: insuredSnapshot.updated_at?.toISOString(),
+    };
 
     // Get default agent (or use provided agentId)
     let agentId = data.agentId;
@@ -236,7 +284,7 @@ export async function POST(request: NextRequest) {
         ${agentId},
         'draft',
         ${insuredInfoId},
-        ${JSON.stringify(insuredSnapshot[0])}::jsonb,
+        ${JSON.stringify(snapshotData)}::jsonb,
         'eform',
         ${data.eformSubmissionId || null},
         ${publicToken}
