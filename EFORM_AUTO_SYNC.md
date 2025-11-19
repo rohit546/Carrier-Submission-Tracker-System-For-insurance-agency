@@ -5,14 +5,18 @@
 ### Automatic Process:
 
 1. **User fills eform** → Clicks "Submit Application"
-2. **Data saves to database:**
+2. **Data saves to database AUTOMATICALLY:**
    - `insured_information` table (all form data)
-   - `submissions` table (submission record)
+   - `submissions` table (submission record) ← **CREATED AUTOMATICALLY**
 3. **Submission automatically appears in Coversheet:**
-   - Shows in agent's "My Submissions" list
+   - Shows in agent's "My Submissions" list immediately
    - Has "NEW" tag on top right (for 48 hours)
    - Status: "DRAFT"
    - Source: "eform"
+4. **"Start Quote" button** → Just a redirect link (convenience only)
+   - Submission already exists in database
+   - User can access it directly from Coversheet list
+   - Button just redirects them to it
 
 ---
 

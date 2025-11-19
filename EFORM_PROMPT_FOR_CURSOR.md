@@ -88,9 +88,11 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 ## What You Need to Do
 
-### Step 1: On "Submit Application" Button
+### Step 1: On "Submit Application" Button - AUTO-CREATE SUBMISSION
 
-When user clicks "Submit Application":
+**IMPORTANT:** When user clicks "Submit Application", you MUST automatically create a submission in the Coversheet database. This makes it appear in Coversheet's "My Submissions" list immediately.
+
+**What to do:**
 
 1. **Save to `insured_information` table:**
    - Map all form fields to the schema above
@@ -98,26 +100,33 @@ When user clicks "Submit Application":
    - Set `source = 'eform'`
    - Store your eform's submission ID in `eform_submission_id`
 
-2. **Create submission in `submissions` table:**
+2. **AUTO-CREATE submission in `submissions` table:**
+   - **This is CRITICAL** - submission must be created here so it appears in Coversheet
    - Link to the `insured_information` record you just created
    - Set `business_name` = `corporation_name`
    - Set `status = 'draft'`
+   - Set `source = 'eform'` (so it shows "NEW" tag in Coversheet)
+   - **Assign to an agent** (`agent_id`) - get first agent from database or assign to specific agent
    - Generate a `public_access_token` (UUID)
    - Store snapshot of insured info in `insured_info_snapshot` (JSONB)
    - Store your eform's submission ID in `eform_submission_id`
+   - Set `business_type_id = NULL` (will be selected later in Coversheet)
 
 3. **Save the `public_access_token` and `submission_id`** - you'll need these for the "Start Quote" button
 
-### Step 2: Add "Start Quote" Button
+**Result:** Submission is now in Coversheet database and will appear in agent's "My Submissions" list with a "NEW" tag!
+
+### Step 2: Add "Start Quote" Button (Just a Redirect)
 
 After "Download PDF" and "Start New" buttons, add a new button:
 
 **Button Text:** "Start Quote"
 
-**Button Action:**
+**Button Action (Just redirects - doesn't create anything):**
 ```typescript
 const handleStartQuote = () => {
   // Use the public_access_token and submission_id from Step 1
+  // This is just a convenience link - submission already exists in database
   const coversheetUrl = `https://your-coversheet-domain.com/agent/submission/${submissionId}?token=${publicAccessToken}`;
   window.location.href = coversheetUrl;
 };
@@ -127,6 +136,8 @@ const handleStartQuote = () => {
 - After "Download PDF" button
 - Before or after "Start New" button
 - Same styling as other buttons
+
+**Note:** This button is just for convenience. The submission is already in Coversheet database and visible in "My Submissions" list. This button just redirects the user to it.
 
 ---
 
@@ -197,21 +208,25 @@ const handleStartQuote = () => {
 ## Simple Implementation Checklist
 
 - [ ] On "Submit Application": Save to `insured_information` table
-- [ ] On "Submit Application": Create record in `submissions` table
+- [ ] On "Submit Application": **AUTO-CREATE** record in `submissions` table (with `source='eform'` and `agent_id`)
 - [ ] Store `submission_id` and `public_access_token` after submission
-- [ ] Add "Start Quote" button after "Download PDF"
+- [ ] Add "Start Quote" button after "Download PDF" (just a redirect link)
 - [ ] "Start Quote" button redirects to: `https://coversheet-url/agent/submission/{id}?token={token}`
-- [ ] Test: User can see their submission in Coversheet list
-- [ ] Test: User can click submission to open it
+- [ ] Test: Submission automatically appears in Coversheet "My Submissions" list with "NEW" tag
+- [ ] Test: User can see submission in Coversheet without clicking "Start Quote"
+- [ ] Test: "Start Quote" button just redirects (doesn't create anything)
 
 ---
 
 ## That's It!
 
 Keep it simple:
-1. Save data on "Submit Application"
-2. Add "Start Quote" button with link to Coversheet
-3. User clicks button → goes to Coversheet → sees their submission
+1. **On "Submit Application":** Save data AND auto-create submission in Coversheet database
+2. **Submission automatically appears** in Coversheet "My Submissions" list with "NEW" tag
+3. **Add "Start Quote" button:** Just a redirect link (convenience only)
+4. **User can access submission** either:
+   - Via "Start Quote" button (redirects to submission)
+   - Or directly in Coversheet "My Submissions" list (already there!)
 
-No authentication needed - the token in the URL provides access.
+**Key Point:** Submission is created in database when form is submitted. "Start Quote" is just a convenience redirect - the submission already exists!
 
