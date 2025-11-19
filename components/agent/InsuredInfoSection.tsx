@@ -9,17 +9,79 @@ interface InsuredInfoSectionProps {
   onUpdate?: (data: Partial<InsuredInformation>) => void;
 }
 
+// Helper function to normalize insured info (handle both camelCase and snake_case)
+function normalizeInsuredInfo(data: any): InsuredInformation {
+  if (!data) return data;
+  
+  // If already normalized (has camelCase), return as is
+  if (data.corporationName) return data;
+  
+  // Convert snake_case to camelCase
+  return {
+    id: data.id,
+    uniqueIdentifier: data.unique_identifier || data.uniqueIdentifier,
+    ownershipType: data.ownership_type || data.ownershipType,
+    corporationName: data.corporation_name || data.corporationName,
+    contactName: data.contact_name || data.contactName,
+    contactNumber: data.contact_number || data.contactNumber,
+    contactEmail: data.contact_email || data.contactEmail,
+    leadSource: data.lead_source || data.leadSource,
+    proposedEffectiveDate: data.proposed_effective_date || data.proposedEffectiveDate,
+    priorCarrier: data.prior_carrier || data.priorCarrier,
+    targetPremium: data.target_premium ? parseFloat(data.target_premium) : (data.targetPremium || null),
+    applicantIs: data.applicant_is || data.applicantIs,
+    operationDescription: data.operation_description || data.operationDescription,
+    dba: data.dba,
+    address: data.address,
+    hoursOfOperation: data.hours_of_operation || data.hoursOfOperation,
+    noOfMPOs: data.no_of_mpos || data.noOfMPOs,
+    constructionType: data.construction_type || data.constructionType,
+    yearsExpInBusiness: data.years_exp_in_business || data.yearsExpInBusiness,
+    yearsAtLocation: data.years_at_location || data.yearsAtLocation,
+    yearBuilt: data.year_built || data.yearBuilt,
+    yearLatestUpdate: data.year_latest_update || data.yearLatestUpdate,
+    totalSqFootage: data.total_sq_footage || data.totalSqFootage,
+    leasedOutSpace: data.leased_out_space || data.leasedOutSpace,
+    protectionClass: data.protection_class || data.protectionClass,
+    additionalInsured: data.additional_insured || data.additionalInsured,
+    alarmInfo: data.alarm_info || data.alarmInfo,
+    fireInfo: data.fire_info || data.fireInfo,
+    propertyCoverage: data.property_coverage || data.propertyCoverage,
+    generalLiability: data.general_liability || data.generalLiability,
+    workersCompensation: data.workers_compensation || data.workersCompensation,
+    source: data.source,
+    eformSubmissionId: data.eform_submission_id || data.eformSubmissionId,
+    createdAt: data.created_at || data.createdAt,
+    updatedAt: data.updated_at || data.updatedAt,
+  };
+}
+
 export default function InsuredInfoSection({ insuredInfo, isEditable = false, onUpdate }: InsuredInfoSectionProps) {
   if (!insuredInfo) {
     return null;
   }
+
+  // Normalize the data to handle both formats
+  const normalizedInfo = normalizeInsuredInfo(insuredInfo);
+  
+  // Debug: Log what we have
+  console.log('📋 Insured Info Data:', {
+    hasCorporationName: !!normalizedInfo.corporationName,
+    hasContactName: !!normalizedInfo.contactName,
+    hasContactEmail: !!normalizedInfo.contactEmail,
+    hasAddress: !!normalizedInfo.address,
+    corporationName: normalizedInfo.corporationName,
+    contactName: normalizedInfo.contactName,
+    contactEmail: normalizedInfo.contactEmail,
+    address: normalizedInfo.address,
+  });
 
   return (
     <div className="card p-6 mb-6">
       <div className="flex items-center gap-2 mb-6">
         <Building2 className="w-6 h-6 text-black" />
         <h2 className="text-2xl font-bold text-black">Insured Information</h2>
-        {insuredInfo.source === 'eform' && (
+        {normalizedInfo.source === 'eform' && (
           <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">From Eform</span>
         )}
       </div>
@@ -31,27 +93,27 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
           
           <div>
             <label className="text-sm font-medium text-gray-600">Corporation Name</label>
-            <p className="text-black font-medium">{insuredInfo.corporationName || 'N/A'}</p>
+            <p className="text-black font-medium">{normalizedInfo.corporationName || 'N/A'}</p>
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-600">DBA (Doing Business As)</label>
-            <p className="text-black">{insuredInfo.dba || 'N/A'}</p>
+            <p className="text-black">{normalizedInfo.dba || 'N/A'}</p>
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-600">Ownership Type</label>
-            <p className="text-black">{insuredInfo.ownershipType || 'N/A'}</p>
+            <p className="text-black">{normalizedInfo.ownershipType || 'N/A'}</p>
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-600">Applicant Type</label>
-            <p className="text-black">{insuredInfo.applicantIs || 'N/A'}</p>
+            <p className="text-black">{normalizedInfo.applicantIs || 'N/A'}</p>
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-600">Operation Description</label>
-            <p className="text-black text-sm">{insuredInfo.operationDescription || 'N/A'}</p>
+            <p className="text-black text-sm">{normalizedInfo.operationDescription || 'N/A'}</p>
           </div>
         </div>
 
@@ -63,7 +125,7 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
             <User className="w-4 h-4 text-gray-400 mt-1" />
             <div>
               <label className="text-sm font-medium text-gray-600">Contact Name</label>
-              <p className="text-black">{insuredInfo.contactName || 'N/A'}</p>
+              <p className="text-black">{normalizedInfo.contactName || 'N/A'}</p>
             </div>
           </div>
 
@@ -71,7 +133,7 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
             <Phone className="w-4 h-4 text-gray-400 mt-1" />
             <div>
               <label className="text-sm font-medium text-gray-600">Contact Number</label>
-              <p className="text-black">{insuredInfo.contactNumber || 'N/A'}</p>
+              <p className="text-black">{normalizedInfo.contactNumber || 'N/A'}</p>
             </div>
           </div>
 
@@ -79,7 +141,7 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
             <Mail className="w-4 h-4 text-gray-400 mt-1" />
             <div>
               <label className="text-sm font-medium text-gray-600">Contact Email</label>
-              <p className="text-black">{insuredInfo.contactEmail || 'N/A'}</p>
+              <p className="text-black">{normalizedInfo.contactEmail || 'N/A'}</p>
             </div>
           </div>
 
@@ -87,7 +149,7 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
             <MapPin className="w-4 h-4 text-gray-400 mt-1" />
             <div>
               <label className="text-sm font-medium text-gray-600">Address</label>
-              <p className="text-black">{insuredInfo.address || 'N/A'}</p>
+              <p className="text-black">{normalizedInfo.address || 'N/A'}</p>
             </div>
           </div>
         </div>
@@ -99,43 +161,43 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-gray-600">Hours of Operation</label>
-              <p className="text-black text-sm">{insuredInfo.hoursOfOperation || 'N/A'}</p>
+              <p className="text-black text-sm">{normalizedInfo.hoursOfOperation || 'N/A'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">No. of MPOs</label>
-              <p className="text-black text-sm">{insuredInfo.noOfMPOs || 'N/A'}</p>
+              <p className="text-black text-sm">{normalizedInfo.noOfMPOs || 'N/A'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Construction Type</label>
-              <p className="text-black text-sm">{insuredInfo.constructionType || 'N/A'}</p>
+              <p className="text-black text-sm">{normalizedInfo.constructionType || 'N/A'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Total Sq. Footage</label>
-              <p className="text-black text-sm">{insuredInfo.totalSqFootage || 'N/A'}</p>
+              <p className="text-black text-sm">{normalizedInfo.totalSqFootage || 'N/A'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Year Built</label>
-              <p className="text-black text-sm">{insuredInfo.yearBuilt || 'N/A'}</p>
+              <p className="text-black text-sm">{normalizedInfo.yearBuilt || 'N/A'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Year of Latest Update</label>
-              <p className="text-black text-sm">{insuredInfo.yearLatestUpdate || 'N/A'}</p>
+              <p className="text-black text-sm">{normalizedInfo.yearLatestUpdate || 'N/A'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Years Exp. in Business</label>
-              <p className="text-black text-sm">{insuredInfo.yearsExpInBusiness || 'N/A'}</p>
+              <p className="text-black text-sm">{normalizedInfo.yearsExpInBusiness || 'N/A'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Years at This Location</label>
-              <p className="text-black text-sm">{insuredInfo.yearsAtLocation || 'N/A'}</p>
+              <p className="text-black text-sm">{normalizedInfo.yearsAtLocation || 'N/A'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Protection Class</label>
-              <p className="text-black text-sm">{insuredInfo.protectionClass || 'N/A'}</p>
+              <p className="text-black text-sm">{normalizedInfo.protectionClass || 'N/A'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Leased Out Space</label>
-              <p className="text-black text-sm">{insuredInfo.leasedOutSpace || 'N/A'}</p>
+              <p className="text-black text-sm">{normalizedInfo.leasedOutSpace || 'N/A'}</p>
             </div>
           </div>
         </div>
