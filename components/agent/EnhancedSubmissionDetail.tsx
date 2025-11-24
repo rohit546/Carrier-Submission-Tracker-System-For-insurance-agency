@@ -311,7 +311,16 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-black">Available Carriers</h3>
-            <div className="flex items-center gap-4 text-xs text-gray-600">
+            <div className="flex items-center gap-4">
+              <a
+                href="https://deployment-delta-eight.vercel.app/summary"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary text-sm"
+              >
+                Generate Summary
+              </a>
+              <div className="flex items-center gap-4 text-xs text-gray-600">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                 Active
@@ -324,6 +333,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
                 <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
                 Unresponsive
               </span>
+              </div>
             </div>
           </div>
           
