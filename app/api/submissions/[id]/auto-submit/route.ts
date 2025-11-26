@@ -82,15 +82,38 @@ export async function POST(
     // Get insured info from snapshot or fetch it
     let insuredInfo = submission.insuredInfoSnapshot;
     
+    console.log('[AUTO-SUBMIT] Submission:', {
+      id: submission.id,
+      businessName: submission.businessName,
+      hasInsuredInfoSnapshot: !!submission.insuredInfoSnapshot,
+      insuredInfoId: submission.insuredInfoId,
+    });
+    
     // If no snapshot but has ID, fetch it from database
     if (!insuredInfo && submission.insuredInfoId) {
+      console.log('[AUTO-SUBMIT] Fetching insured info from database...');
       insuredInfo = await getInsuredInformation(submission.insuredInfoId);
+      console.log('[AUTO-SUBMIT] Fetched insured info:', {
+        hasData: !!insuredInfo,
+        corporationName: insuredInfo?.corporationName || insuredInfo?.corporation_name,
+        address: insuredInfo?.address,
+      });
     }
 
     // Normalize insured info (handle snake_case)
     const normalize = (data: any) => {
-      if (!data) return null;
-      return {
+      if (!data) {
+        console.log('[AUTO-SUBMIT] No insured info data, using submission business name');
+        return {
+          corporationName: submission.businessName,
+          contactName: '',
+          contactNumber: '',
+          contactEmail: '',
+          address: '',
+          operationDescription: '',
+        };
+      }
+      const normalized = {
         corporationName: data.corporationName || data.corporation_name || submission.businessName,
         contactName: data.contactName || data.contact_name || '',
         contactNumber: data.contactNumber || data.contact_number || '',
@@ -98,31 +121,37 @@ export async function POST(
         address: data.address || '',
         operationDescription: data.operationDescription || data.operation_description || '',
       };
+      console.log('[AUTO-SUBMIT] Normalized data:', normalized);
+      return normalized;
     };
 
     const normalized = normalize(insuredInfo);
     
     // Validate required fields
     if (!normalized?.corporationName) {
+      console.error('[AUTO-SUBMIT] Validation failed: Corporation name missing');
       return NextResponse.json(
-        { error: 'Corporation name is required' },
+        { error: 'Corporation name is required. Please ensure insured information is complete.' },
         { status: 400 }
       );
     }
 
     if (!normalized.address) {
+      console.error('[AUTO-SUBMIT] Validation failed: Address missing');
       return NextResponse.json(
-        { error: 'Address is required' },
+        { error: 'Address is required. Please ensure insured information includes an address.' },
         { status: 400 }
       );
     }
 
     // Parse address
     const { addressLine1, zipCode } = parseAddress(normalized.address);
+    console.log('[AUTO-SUBMIT] Parsed address:', { addressLine1, zipCode, original: normalized.address });
     
     if (!zipCode) {
+      console.error('[AUTO-SUBMIT] Validation failed: Zip code not found in address');
       return NextResponse.json(
-        { error: 'Zip code is required in address' },
+        { error: `Zip code is required in address. Address provided: "${normalized.address}". Please include a zip code (e.g., 12345 or 12345-6789).` },
         { status: 400 }
       );
     }
