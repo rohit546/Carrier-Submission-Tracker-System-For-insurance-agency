@@ -227,12 +227,14 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         // Clear status after 5 seconds
         setTimeout(() => setSubmitStatus(null), 5000);
       } else {
+        // Show detailed error message if available
+        const errorMessage = result.details || result.error || 'Failed to submit to RPA';
         setSubmitStatus({
           success: false,
-          message: result.error || 'Failed to submit to RPA',
+          message: errorMessage,
         });
-        // Clear error after 5 seconds
-        setTimeout(() => setSubmitStatus(null), 5000);
+        // Keep error visible longer (10 seconds) so user can read it
+        setTimeout(() => setSubmitStatus(null), 10000);
       }
     } catch (error: any) {
       console.error('Auto-submit error:', error);
@@ -311,12 +313,32 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
             ? 'bg-green-50 border border-green-200' 
             : 'bg-red-50 border border-red-200'
         }`}>
-          <p className={`text-sm ${
-            submitStatus.success ? 'text-green-800' : 'text-red-800'
-          }`}>
-            {submitStatus.success ? '✓ ' : '✗ '}
-            {submitStatus.message}
-          </p>
+          <div className="flex items-start gap-2">
+            <span className={`text-lg ${submitStatus.success ? 'text-green-600' : 'text-red-600'}`}>
+              {submitStatus.success ? '✓' : '✗'}
+            </span>
+            <div className="flex-1">
+              <p className={`text-sm font-medium ${
+                submitStatus.success ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {submitStatus.success ? 'Success' : 'Validation Error'}
+              </p>
+              <p className={`text-sm mt-1 ${
+                submitStatus.success ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {submitStatus.message}
+              </p>
+            </div>
+            {!submitStatus.success && (
+              <button
+                onClick={() => setSubmitStatus(null)}
+                className="text-red-600 hover:text-red-800 text-lg font-bold"
+                aria-label="Close error"
+              >
+                ×
+              </button>
+            )}
+          </div>
         </div>
       )}
 
