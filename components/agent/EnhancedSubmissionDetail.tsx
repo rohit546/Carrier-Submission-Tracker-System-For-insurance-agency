@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Submission, BusinessType, Carrier, CarrierQuote, InsuredInformation } from '@/lib/types';
 import InsuredInfoSection from './InsuredInfoSection';
-import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send } from 'lucide-react';
+import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send, Rocket } from 'lucide-react';
 
 interface CarrierAppetiteDetail {
   id: string;
@@ -34,6 +34,8 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   const [localCarriers, setLocalCarriers] = useState(submission.carriers);
   const [selectedBusinessType, setSelectedBusinessType] = useState<string>(submission.businessTypeId || '');
   const [loadingAppetite, setLoadingAppetite] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<{ success?: boolean; message?: string } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -205,6 +207,45 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
     }
   }
 
+  async function handleAutoSubmit() {
+    setSubmitting(true);
+    setSubmitStatus(null);
+    
+    try {
+      const res = await fetch(`/api/submissions/${submission.id}/auto-submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        setSubmitStatus({
+          success: true,
+          message: result.message || 'Submission sent to RPA successfully',
+        });
+        // Clear status after 5 seconds
+        setTimeout(() => setSubmitStatus(null), 5000);
+      } else {
+        setSubmitStatus({
+          success: false,
+          message: result.error || 'Failed to submit to RPA',
+        });
+        // Clear error after 5 seconds
+        setTimeout(() => setSubmitStatus(null), 5000);
+      }
+    } catch (error: any) {
+      console.error('Auto-submit error:', error);
+      setSubmitStatus({
+        success: false,
+        message: error.message || 'Failed to submit. Please try again.',
+      });
+      setTimeout(() => setSubmitStatus(null), 5000);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   // Get insured info from snapshot
   const insuredInfo = submission.insuredInfoSnapshot as InsuredInformation | null;
   
@@ -238,10 +279,46 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
           </div>
           <p className="text-gray-600">{getBusinessTypeName()}</p>
         </div>
-        <Link href="/agent" className="btn-secondary text-sm">
-          Back to List
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleAutoSubmit}
+            disabled={submitting || !insuredInfo}
+            className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!insuredInfo ? 'Insured information is required' : 'Submit to RPA automation'}
+          >
+            {submitting ? (
+              <>
+                <span className="animate-spin">⏳</span>
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Rocket className="w-4 h-4" />
+                Auto Submit
+              </>
+            )}
+          </button>
+          <Link href="/agent" className="btn-secondary text-sm">
+            Back to List
+          </Link>
+        </div>
       </div>
+
+      {/* Submit Status Message */}
+      {submitStatus && (
+        <div className={`card p-4 mb-4 ${
+          submitStatus.success 
+            ? 'bg-green-50 border border-green-200' 
+            : 'bg-red-50 border border-red-200'
+        }`}>
+          <p className={`text-sm ${
+            submitStatus.success ? 'text-green-800' : 'text-red-800'
+          }`}>
+            {submitStatus.success ? '✓ ' : '✗ '}
+            {submitStatus.message}
+          </p>
+        </div>
+      )}
 
       {/* Insured Information Section - Show First */}
       {insuredInfo ? (
