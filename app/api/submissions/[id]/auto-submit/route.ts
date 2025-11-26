@@ -148,12 +148,10 @@ export async function POST(
     const { addressLine1, zipCode } = parseAddress(normalized.address);
     console.log('[AUTO-SUBMIT] Parsed address:', { addressLine1, zipCode, original: normalized.address });
     
+    // Use default zip code if not found (RPA bot may handle it or user can update)
+    const finalZipCode = zipCode || '00000';
     if (!zipCode) {
-      console.error('[AUTO-SUBMIT] Validation failed: Zip code not found in address');
-      return NextResponse.json(
-        { error: `Zip code is required in address. Address provided: "${normalized.address}". Please include a zip code (e.g., 12345 or 12345-6789).` },
-        { status: 400 }
-      );
+      console.warn('[AUTO-SUBMIT] Warning: Zip code not found in address, using default: 00000');
     }
 
     // Parse contact name
@@ -176,7 +174,7 @@ export async function POST(
           fein: '', // FEIN not stored in current schema - can be added later
           description: normalized.operationDescription || 'Business operations',
           addressLine1: addressLine1,
-          zipCode: zipCode,
+          zipCode: finalZipCode,
           phone: normalized.contactNumber || '',
           email: normalized.contactEmail || '',
         },
