@@ -3,8 +3,16 @@ import { getCurrentUser } from '@/lib/auth';
 import { getCarriers, createCarrier } from '@/lib/db/queries';
 
 export async function GET() {
-  const carriers = await getCarriers();
-  return NextResponse.json(carriers);
+  try {
+    const carriers = await getCarriers();
+    return NextResponse.json(carriers);
+  } catch (error: any) {
+    console.error('Error fetching carriers:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch carriers' },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {

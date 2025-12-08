@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { InsuredInformation } from '@/lib/types';
-import { Building2, User, Mail, Phone, MapPin, Calendar, DollarSign, FileText } from 'lucide-react';
+import { Building2, User, Mail, Phone, MapPin, Calendar, DollarSign, FileText, Pencil, Check, X } from 'lucide-react';
 
 // Helper function to format dates consistently (prevents hydration errors)
 function formatDate(dateString: string | null | undefined): string {
@@ -18,8 +19,58 @@ function formatDate(dateString: string | null | undefined): string {
   }
 }
 
+// Helper to convert date string to input format (YYYY-MM-DD)
+function dateToInput(dateString: string | null | undefined): string {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  } catch (e) {
+    return '';
+  }
+}
+
+// Helper to validate FEIN format (XX-XXXXXXX)
+function validateFEIN(fein: string | null | undefined): { valid: boolean; error?: string } {
+  if (!fein || !fein.trim()) {
+    return { valid: false, error: 'FEIN is required' };
+  }
+
+  // Remove any spaces
+  const cleaned = fein.trim().replace(/\s+/g, '');
+  
+  // Check format: XX-XXXXXXX (2 digits, hyphen, 7 digits)
+  const feinPattern = /^\d{2}-\d{7}$/;
+  
+  if (!feinPattern.test(cleaned)) {
+    return { 
+      valid: false, 
+      error: 'FEIN must be in format XX-XXXXXXX (e.g., 58-3247891)' 
+    };
+  }
+
+  return { valid: true };
+}
+
+// Helper to format FEIN (add hyphen if missing, ensure correct format)
+function formatFEIN(fein: string | null | undefined): string {
+  if (!fein) return '';
+  
+  // Remove all non-digit characters
+  const digits = fein.replace(/\D/g, '');
+  
+  // Must be exactly 9 digits
+  if (digits.length !== 9) {
+    return fein; // Return original if invalid length
+  }
+  
+  // Format as XX-XXXXXXX
+  return `${digits.substring(0, 2)}-${digits.substring(2)}`;
+}
+
 interface InsuredInfoSectionProps {
   insuredInfo: InsuredInformation | null;
+  insuredInfoId?: string | null; // Pass the ID separately in case it's not in the snapshot
   isEditable?: boolean;
   onUpdate?: (data: Partial<InsuredInformation>) => void;
 }
@@ -59,6 +110,7 @@ function normalizeInsuredInfo(data: any): InsuredInformation {
     leasedOutSpace: data.leased_out_space || data.leasedOutSpace,
     protectionClass: data.protection_class || data.protectionClass,
     additionalInsured: data.additional_insured || data.additionalInsured,
+    fein: data.fein || data.fein_id || data.federal_employer_id || data.feinId,
     alarmInfo: data.alarm_info || data.alarmInfo,
     fireInfo: data.fire_info || data.fireInfo,
     propertyCoverage: data.property_coverage || data.propertyCoverage,
@@ -71,7 +123,11 @@ function normalizeInsuredInfo(data: any): InsuredInformation {
   };
 }
 
-export default function InsuredInfoSection({ insuredInfo, isEditable = false, onUpdate }: InsuredInfoSectionProps) {
+export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEditable = true, onUpdate }: InsuredInfoSectionProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState<Partial<InsuredInformation>>({});
+
   if (!insuredInfo) {
     return null;
   }
@@ -79,25 +135,230 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
   // Normalize the data to handle both formats
   const normalizedInfo = normalizeInsuredInfo(insuredInfo);
   
-  // Debug: Log what we have
-  console.log('📋 Insured Info Data:', {
-    hasCorporationName: !!normalizedInfo.corporationName,
-    hasContactName: !!normalizedInfo.contactName,
-    hasContactEmail: !!normalizedInfo.contactEmail,
-    hasAddress: !!normalizedInfo.address,
-    corporationName: normalizedInfo.corporationName,
-    contactName: normalizedInfo.contactName,
-    contactEmail: normalizedInfo.contactEmail,
-    address: normalizedInfo.address,
-  });
+  // Get the ID - prefer the one from props (most reliable), then from normalizedInfo, then from insuredInfo
+  // Filter out "undefined" string
+  const actualId = (insuredInfoId && insuredInfoId !== 'undefined') 
+    ? insuredInfoId 
+    : (normalizedInfo.id && normalizedInfo.id !== 'undefined')
+    ? normalizedInfo.id
+    : ((insuredInfo as any).id && (insuredInfo as any).id !== 'undefined')
+    ? (insuredInfo as any).id
+    : null;
+  
+  if (!actualId) {
+    console.error('No insured info ID available', { 
+      insuredInfoId, 
+      normalizedInfoId: normalizedInfo.id, 
+      insuredInfoIdRaw: insuredInfoId,
+      hasInsuredInfo: !!insuredInfo 
+    });
+    return (
+      <div className="card p-6 mb-6 bg-red-50 border border-red-200">
+        <p className="text-sm text-red-800">
+          ⚠️ Error: Insured information ID is missing. Cannot edit this record.
+        </p>
+        <p className="text-xs text-red-600 mt-2">
+          Debug: insuredInfoId={String(insuredInfoId)}, snapshotId={String(normalizedInfo.id)}
+        </p>
+      </div>
+    );
+  }
+
+  // Initialize form data when entering edit mode
+  const handleEdit = () => {
+    setFormData({
+      ownershipType: normalizedInfo.ownershipType || '',
+      corporationName: normalizedInfo.corporationName || '',
+      contactName: normalizedInfo.contactName || '',
+      contactNumber: normalizedInfo.contactNumber || '',
+      contactEmail: normalizedInfo.contactEmail || '',
+      leadSource: normalizedInfo.leadSource || '',
+      proposedEffectiveDate: normalizedInfo.proposedEffectiveDate || '',
+      priorCarrier: normalizedInfo.priorCarrier || '',
+      targetPremium: normalizedInfo.targetPremium || null,
+      applicantIs: normalizedInfo.applicantIs || '',
+      operationDescription: normalizedInfo.operationDescription || '',
+      dba: normalizedInfo.dba || '',
+      address: normalizedInfo.address || '',
+      fein: normalizedInfo.fein || '',
+      hoursOfOperation: normalizedInfo.hoursOfOperation || '',
+      noOfMPOs: normalizedInfo.noOfMPOs || null,
+      constructionType: normalizedInfo.constructionType || '',
+      yearsExpInBusiness: normalizedInfo.yearsExpInBusiness || null,
+      yearsAtLocation: normalizedInfo.yearsAtLocation || null,
+      yearBuilt: normalizedInfo.yearBuilt || null,
+      yearLatestUpdate: normalizedInfo.yearLatestUpdate || null,
+      totalSqFootage: normalizedInfo.totalSqFootage || null,
+      leasedOutSpace: normalizedInfo.leasedOutSpace || '',
+      protectionClass: normalizedInfo.protectionClass || '',
+      additionalInsured: normalizedInfo.additionalInsured || '',
+      propertyCoverage: normalizedInfo.propertyCoverage || {},
+      generalLiability: normalizedInfo.generalLiability || {},
+      workersCompensation: normalizedInfo.workersCompensation || {},
+    });
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setFormData({});
+  };
+
+  const handleSave = async () => {
+    // Validate required field
+    if (!formData.corporationName?.trim()) {
+      alert('Corporation name is required');
+      return;
+    }
+
+    // Validate FEIN format if provided
+    if (formData.fein) {
+      const feinValidation = validateFEIN(formData.fein);
+      if (!feinValidation.valid) {
+        alert(feinValidation.error || 'FEIN format is invalid');
+        return;
+      }
+      // Format FEIN before saving
+      formData.fein = formatFEIN(formData.fein);
+    }
+
+    // Double-check we have a valid ID (UUID format)
+    if (!actualId || actualId === 'undefined' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actualId)) {
+      console.error('Invalid ID format:', actualId);
+      alert('Error: Invalid insured information ID. Please refresh the page.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      console.log('Saving insured info:', { id: actualId, formData });
+      const response = await fetch(`/api/insured-info/${actualId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update');
+      }
+
+      const updated = await response.json();
+      
+      // Call onUpdate callback if provided
+      if (onUpdate) {
+        onUpdate(updated);
+      }
+      
+      setIsEditing(false);
+      // Reload page to show updated data
+      window.location.reload();
+    } catch (error: any) {
+      alert(error.message || 'Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateField = (field: keyof InsuredInformation, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateNestedField = (parentField: 'propertyCoverage' | 'generalLiability' | 'workersCompensation', key: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [parentField]: {
+        ...(prev[parentField] as any || {}),
+        [key]: value === '' ? null : (isNaN(Number(value)) ? value : Number(value)),
+      },
+    }));
+  };
+
+  // Render field as input or text
+  const renderField = (
+    label: string,
+    field: keyof InsuredInformation,
+    type: 'text' | 'number' | 'email' | 'tel' | 'date' | 'textarea' = 'text',
+    placeholder?: string
+  ) => {
+    const value = isEditing ? (formData[field] ?? '') : (normalizedInfo[field] ?? '');
+    
+    if (isEditing) {
+      if (type === 'textarea') {
+        return (
+          <textarea
+            value={value as string}
+            onChange={(e) => updateField(field, e.target.value)}
+            className="input-field w-full"
+            placeholder={placeholder || `Enter ${label.toLowerCase()}`}
+            rows={3}
+          />
+        );
+      }
+      return (
+        <input
+          type={type}
+          value={type === 'date' ? dateToInput(value as string) : (value as string | number)}
+          onChange={(e) => {
+            const val = type === 'number' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value;
+            updateField(field, val);
+          }}
+          className="input-field w-full"
+          placeholder={placeholder || `Enter ${label.toLowerCase()}`}
+        />
+      );
+    }
+    
+    if (type === 'date') {
+      return <p className="text-black text-sm">{formatDate(value as string)}</p>;
+    }
+    if (type === 'number') {
+      return <p className="text-black text-sm">{value || 'N/A'}</p>;
+    }
+    return <p className="text-black text-sm">{value || 'N/A'}</p>;
+  };
 
   return (
     <div className="card p-6 mb-6">
-      <div className="flex items-center gap-2 mb-6">
-        <Building2 className="w-6 h-6 text-black" />
-        <h2 className="text-2xl font-bold text-black">Insured Information</h2>
-        {normalizedInfo.source === 'eform' && (
-          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">From Eform</span>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <Building2 className="w-6 h-6 text-black" />
+          <h2 className="text-2xl font-bold text-black">Insured Information</h2>
+          {normalizedInfo.source === 'eform' && (
+            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">From Eform</span>
+          )}
+        </div>
+        {isEditable && (
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="p-2 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
+                  title="Save changes"
+                >
+                  <Check className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={handleCancel}
+                  disabled={saving}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+                  title="Cancel editing"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleEdit}
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded"
+                title="Edit insured information"
+              >
+                <Pencil className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -107,28 +368,83 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
           <h3 className="text-lg font-semibold text-black border-b border-gray-200 pb-2">Basic Information</h3>
           
           <div>
-            <label className="text-sm font-medium text-gray-600">Corporation Name</label>
-            <p className="text-black font-medium">{normalizedInfo.corporationName || 'N/A'}</p>
+            <label className="text-sm font-medium text-gray-600">Corporation Name *</label>
+            {isEditing ? (
+              <input
+                type="text"
+                value={formData.corporationName || ''}
+                onChange={(e) => updateField('corporationName', e.target.value)}
+                className="input-field w-full"
+                placeholder="Enter corporation name"
+                required
+              />
+            ) : (
+              <p className="text-black font-medium">{normalizedInfo.corporationName || 'N/A'}</p>
+            )}
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-600">DBA (Doing Business As)</label>
-            <p className="text-black">{normalizedInfo.dba || 'N/A'}</p>
+            {renderField('DBA', 'dba')}
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-600">FEIN ID</label>
+            {isEditing ? (
+              <div>
+                <input
+                  type="text"
+                  value={formData.fein || ''}
+                  onChange={(e) => {
+                    let value = e.target.value;
+                    // Auto-format as user types (add hyphen after 2 digits)
+                    const digits = value.replace(/\D/g, '');
+                    if (digits.length <= 2) {
+                      updateField('fein', digits);
+                    } else if (digits.length <= 9) {
+                      updateField('fein', `${digits.substring(0, 2)}-${digits.substring(2)}`);
+                    } else {
+                      // Limit to 9 digits
+                      updateField('fein', `${digits.substring(0, 2)}-${digits.substring(2, 9)}`);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Format on blur if not already formatted
+                    const formatted = formatFEIN(e.target.value);
+                    if (formatted !== e.target.value) {
+                      updateField('fein', formatted);
+                    }
+                  }}
+                  className="input-field w-full"
+                  placeholder="58-3247891"
+                  maxLength={10} // XX-XXXXXXX = 10 characters
+                />
+                {formData.fein && !validateFEIN(formData.fein).valid && (
+                  <p className="text-xs text-red-600 mt-1">
+                    Format: XX-XXXXXXX (e.g., 58-3247891)
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-black text-sm">
+                {normalizedInfo.fein ? formatFEIN(normalizedInfo.fein) : 'N/A'}
+              </p>
+            )}
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-600">Ownership Type</label>
-            <p className="text-black">{normalizedInfo.ownershipType || 'N/A'}</p>
+            {renderField('Ownership Type', 'ownershipType')}
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-600">Applicant Type</label>
-            <p className="text-black">{normalizedInfo.applicantIs || 'N/A'}</p>
+            {renderField('Applicant Type', 'applicantIs')}
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-600">Operation Description</label>
-            <p className="text-black text-sm">{normalizedInfo.operationDescription || 'N/A'}</p>
+            {renderField('Operation Description', 'operationDescription', 'textarea')}
           </div>
         </div>
 
@@ -138,33 +454,33 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
           
           <div className="flex items-start gap-2">
             <User className="w-4 h-4 text-gray-400 mt-1" />
-            <div>
+            <div className="flex-1">
               <label className="text-sm font-medium text-gray-600">Contact Name</label>
-              <p className="text-black">{normalizedInfo.contactName || 'N/A'}</p>
+              {renderField('Contact Name', 'contactName')}
             </div>
           </div>
 
           <div className="flex items-start gap-2">
             <Phone className="w-4 h-4 text-gray-400 mt-1" />
-            <div>
+            <div className="flex-1">
               <label className="text-sm font-medium text-gray-600">Contact Number</label>
-              <p className="text-black">{normalizedInfo.contactNumber || 'N/A'}</p>
+              {renderField('Contact Number', 'contactNumber', 'tel')}
             </div>
           </div>
 
           <div className="flex items-start gap-2">
             <Mail className="w-4 h-4 text-gray-400 mt-1" />
-            <div>
+            <div className="flex-1">
               <label className="text-sm font-medium text-gray-600">Contact Email</label>
-              <p className="text-black">{normalizedInfo.contactEmail || 'N/A'}</p>
+              {renderField('Contact Email', 'contactEmail', 'email')}
             </div>
           </div>
 
           <div className="flex items-start gap-2">
             <MapPin className="w-4 h-4 text-gray-400 mt-1" />
-            <div>
+            <div className="flex-1">
               <label className="text-sm font-medium text-gray-600">Address</label>
-              <p className="text-black">{normalizedInfo.address || 'N/A'}</p>
+              {renderField('Address', 'address', 'textarea')}
             </div>
           </div>
         </div>
@@ -176,43 +492,43 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-gray-600">Hours of Operation</label>
-              <p className="text-black text-sm">{normalizedInfo.hoursOfOperation || 'N/A'}</p>
+              {renderField('Hours of Operation', 'hoursOfOperation')}
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">No. of MPOs</label>
-              <p className="text-black text-sm">{normalizedInfo.noOfMPOs || 'N/A'}</p>
+              {renderField('No. of MPOs', 'noOfMPOs', 'number')}
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Construction Type</label>
-              <p className="text-black text-sm">{normalizedInfo.constructionType || 'N/A'}</p>
+              {renderField('Construction Type', 'constructionType')}
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Total Sq. Footage</label>
-              <p className="text-black text-sm">{normalizedInfo.totalSqFootage || 'N/A'}</p>
+              {renderField('Total Sq. Footage', 'totalSqFootage', 'number')}
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Year Built</label>
-              <p className="text-black text-sm">{normalizedInfo.yearBuilt || 'N/A'}</p>
+              {renderField('Year Built', 'yearBuilt', 'number')}
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Year of Latest Update</label>
-              <p className="text-black text-sm">{normalizedInfo.yearLatestUpdate || 'N/A'}</p>
+              {renderField('Year of Latest Update', 'yearLatestUpdate', 'number')}
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Years Exp. in Business</label>
-              <p className="text-black text-sm">{normalizedInfo.yearsExpInBusiness || 'N/A'}</p>
+              {renderField('Years Exp. in Business', 'yearsExpInBusiness', 'number')}
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Years at This Location</label>
-              <p className="text-black text-sm">{normalizedInfo.yearsAtLocation || 'N/A'}</p>
+              {renderField('Years at This Location', 'yearsAtLocation', 'number')}
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Protection Class</label>
-              <p className="text-black text-sm">{normalizedInfo.protectionClass || 'N/A'}</p>
+              {renderField('Protection Class', 'protectionClass')}
             </div>
             <div>
               <label className="text-sm font-medium text-gray-600">Leased Out Space</label>
-              <p className="text-black text-sm">{normalizedInfo.leasedOutSpace || 'N/A'}</p>
+              {renderField('Leased Out Space', 'leasedOutSpace')}
             </div>
           </div>
         </div>
@@ -223,73 +539,50 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
           
           <div>
             <label className="text-sm font-medium text-gray-600">Lead Source</label>
-            <p className="text-black text-sm">{normalizedInfo.leadSource || 'N/A'}</p>
+            {renderField('Lead Source', 'leadSource')}
           </div>
 
           <div>
             <label className="text-sm font-medium text-gray-600">Prior Carrier</label>
-            <p className="text-black text-sm">{normalizedInfo.priorCarrier || 'N/A'}</p>
+            {renderField('Prior Carrier', 'priorCarrier')}
           </div>
 
-          {normalizedInfo.targetPremium && (
+          {(!isEditing && normalizedInfo.targetPremium) || (isEditing && formData.targetPremium !== undefined) ? (
             <div className="flex items-start gap-2">
               <DollarSign className="w-4 h-4 text-gray-400 mt-1" />
-              <div>
+              <div className="flex-1">
                 <label className="text-sm font-medium text-gray-600">Target Premium</label>
-                <p className="text-black">${normalizedInfo.targetPremium.toLocaleString()}</p>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    value={formData.targetPremium || ''}
+                    onChange={(e) => updateField('targetPremium', e.target.value === '' ? null : Number(e.target.value))}
+                    className="input-field w-full"
+                    placeholder="Enter target premium"
+                  />
+                ) : (
+                  <p className="text-black">${normalizedInfo.targetPremium?.toLocaleString()}</p>
+                )}
               </div>
             </div>
-          )}
+          ) : null}
 
-          {normalizedInfo.proposedEffectiveDate && (
+          {(!isEditing && normalizedInfo.proposedEffectiveDate) || (isEditing && formData.proposedEffectiveDate !== undefined) ? (
             <div className="flex items-start gap-2">
               <Calendar className="w-4 h-4 text-gray-400 mt-1" />
-              <div>
+              <div className="flex-1">
                 <label className="text-sm font-medium text-gray-600">Proposed Effective Date</label>
-                <p className="text-black text-sm">
-                  {formatDate(normalizedInfo.proposedEffectiveDate)}
-                </p>
+                {renderField('Proposed Effective Date', 'proposedEffectiveDate', 'date')}
               </div>
             </div>
-          )}
+          ) : null}
 
-          {normalizedInfo.additionalInsured && (
+          {(!isEditing && normalizedInfo.additionalInsured) || (isEditing && formData.additionalInsured !== undefined) ? (
             <div>
               <label className="text-sm font-medium text-gray-600">Additional Insured</label>
-              <p className="text-black text-sm">{normalizedInfo.additionalInsured}</p>
+              {renderField('Additional Insured', 'additionalInsured', 'textarea')}
             </div>
-          )}
-
-          {/* Security Systems */}
-          {(normalizedInfo.alarmInfo || normalizedInfo.fireInfo) && (
-            <div>
-              <label className="text-sm font-medium text-gray-600">Security Systems</label>
-              <div className="mt-2 space-y-1">
-                {normalizedInfo.alarmInfo && Object.keys(normalizedInfo.alarmInfo).length > 0 && (
-                  <div>
-                    <span className="text-xs font-medium text-gray-600">Alarm: </span>
-                    <span className="text-xs text-black">
-                      {Object.entries(normalizedInfo.alarmInfo)
-                        .filter(([_, v]) => v === true)
-                        .map(([k]) => k)
-                        .join(', ')}
-                    </span>
-                  </div>
-                )}
-                {normalizedInfo.fireInfo && Object.keys(normalizedInfo.fireInfo).length > 0 && (
-                  <div>
-                    <span className="text-xs font-medium text-gray-600">Fire: </span>
-                    <span className="text-xs text-black">
-                      {Object.entries(normalizedInfo.fireInfo)
-                        .filter(([_, v]) => v === true)
-                        .map(([k]) => k)
-                        .join(', ')}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -302,53 +595,108 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
               Coverage Details
             </summary>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Property Coverage - Show all fields */}
               {normalizedInfo.propertyCoverage && Object.keys(normalizedInfo.propertyCoverage).length > 0 && (
                 <div>
                   <h4 className="font-semibold text-black mb-2">Property Coverage</h4>
-                  <div className="space-y-1 text-sm">
-                    {Object.entries(normalizedInfo.propertyCoverage).map(([key, value]) => (
-                      <div key={key} className="flex justify-between">
-                        <span className="text-gray-600">{key}:</span>
-                        <span className="text-black">
-                          {typeof value === 'number' ? `$${value.toLocaleString()}` : String(value)}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="space-y-2 text-sm">
+                    {Object.entries(isEditing ? (formData.propertyCoverage || {}) : normalizedInfo.propertyCoverage)
+                      .filter(([_, value]) => value !== null && value !== undefined)
+                      .map(([key, value]) => {
+                        const fieldLabels: { [key: string]: string } = {
+                          bi: 'Business Interruption',
+                          ms: 'Money & Securities',
+                          bpp: 'Business Personal Property',
+                          pumps: 'Pumps',
+                          canopy: 'Canopy',
+                          building: 'Building',
+                        };
+                        const label = fieldLabels[key.toLowerCase()] || key;
+                        return (
+                          <div key={key} className="flex justify-between items-center">
+                            <span className="text-gray-600">{label}:</span>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={value as number || ''}
+                                onChange={(e) => updateNestedField('propertyCoverage', key, e.target.value)}
+                                className="input-field w-32 text-right"
+                                placeholder="0"
+                              />
+                            ) : (
+                              <span className="text-black font-medium">
+                                {typeof value === 'number' ? `$${value.toLocaleString()}` : String(value)}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               )}
 
+              {/* General Liability - Show only yearly/annual values */}
               {normalizedInfo.generalLiability && Object.keys(normalizedInfo.generalLiability).length > 0 && (
                 <div>
                   <h4 className="font-semibold text-black mb-2">General Liability</h4>
-                  <div className="space-y-1 text-sm">
-                    {Object.entries(normalizedInfo.generalLiability).map(([key, value]) => (
-                      <div key={key}>
-                        <span className="text-gray-600">{key}:</span>
-                        {typeof value === 'object' && value !== null ? (
-                          <div className="ml-4">
-                            {(value as any).monthly && <div>Monthly: ${(value as any).monthly.toLocaleString()}</div>}
-                            {(value as any).yearly && <div>Yearly: ${(value as any).yearly.toLocaleString()}</div>}
+                  <div className="space-y-2 text-sm">
+                    {Object.entries(isEditing ? (formData.generalLiability || {}) : normalizedInfo.generalLiability)
+                      .filter(([key, value]) => {
+                        const isYearly = key.toLowerCase().includes('yearly') || key.toLowerCase().endsWith('yearly');
+                        return isYearly && value !== null && value !== undefined;
+                      })
+                      .map(([key, value]) => {
+                        let label = key
+                          .replace(/Yearly/gi, '')
+                          .replace(/yearly/gi, '')
+                          .replace(/([A-Z])/g, ' $1')
+                          .trim();
+                        label = label.charAt(0).toUpperCase() + label.slice(1) + ' (Annual)';
+                        
+                        return (
+                          <div key={key} className="flex justify-between items-center">
+                            <span className="text-gray-600">{label}:</span>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={value as number || ''}
+                                onChange={(e) => updateNestedField('generalLiability', key, e.target.value)}
+                                className="input-field w-32 text-right"
+                                placeholder="0"
+                              />
+                            ) : (
+                              <span className="text-black font-medium">
+                                {typeof value === 'number' ? `$${value.toLocaleString()}` : String(value)}
+                              </span>
+                            )}
                           </div>
-                        ) : (
-                          <span className="text-black ml-2">{String(value)}</span>
-                        )}
-                      </div>
-                    ))}
+                        );
+                      })}
                   </div>
                 </div>
               )}
 
-              {normalizedInfo.workersCompensation && Object.keys(normalizedInfo.workersCompensation).length > 0 && (
+              {/* Workers Compensation - Show only noOfEmployees */}
+              {normalizedInfo.workersCompensation && normalizedInfo.workersCompensation.noOfEmployees !== null && normalizedInfo.workersCompensation.noOfEmployees !== undefined && (
                 <div>
                   <h4 className="font-semibold text-black mb-2">Worker's Compensation</h4>
-                  <div className="space-y-1 text-sm">
-                    {Object.entries(normalizedInfo.workersCompensation).map(([key, value]) => (
-                      <div key={key} className="flex justify-between">
-                        <span className="text-gray-600">{key}:</span>
-                        <span className="text-black">{String(value)}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">No. of Employees:</span>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          value={(isEditing ? (formData.workersCompensation as any)?.noOfEmployees : normalizedInfo.workersCompensation?.noOfEmployees) || ''}
+                          onChange={(e) => updateNestedField('workersCompensation', 'noOfEmployees', e.target.value)}
+                          className="input-field w-32 text-right"
+                          placeholder="0"
+                        />
+                      ) : (
+                        <span className="text-black font-medium">
+                          {String(normalizedInfo.workersCompensation.noOfEmployees)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -359,4 +707,3 @@ export default function InsuredInfoSection({ insuredInfo, isEditable = false, on
     </div>
   );
 }
-

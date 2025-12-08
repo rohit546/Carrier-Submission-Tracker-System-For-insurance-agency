@@ -62,6 +62,44 @@ function extractState(address: string | null | undefined): string {
   return 'GA'; // Default
 }
 
+// Helper to validate FEIN format (XX-XXXXXXX)
+function validateFEIN(fein: string | null | undefined): { valid: boolean; error?: string } {
+  if (!fein || !fein.trim()) {
+    return { valid: false, error: 'FEIN is required' };
+  }
+
+  // Remove any spaces
+  const cleaned = fein.trim().replace(/\s+/g, '');
+  
+  // Check format: XX-XXXXXXX (2 digits, hyphen, 7 digits)
+  const feinPattern = /^\d{2}-\d{7}$/;
+  
+  if (!feinPattern.test(cleaned)) {
+    return { 
+      valid: false, 
+      error: 'FEIN must be in format XX-XXXXXXX (e.g., 58-3247891)' 
+    };
+  }
+
+  return { valid: true };
+}
+
+// Helper to format FEIN (add hyphen if missing, ensure correct format)
+function formatFEIN(fein: string | null | undefined): string {
+  if (!fein) return '';
+  
+  // Remove all non-digit characters
+  const digits = fein.replace(/\D/g, '');
+  
+  // Must be exactly 9 digits
+  if (digits.length !== 9) {
+    return fein; // Return original if invalid length
+  }
+  
+  // Format as XX-XXXXXXX
+  return `${digits.substring(0, 2)}-${digits.substring(2)}`;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -100,7 +138,7 @@ export async function POST(
       });
     }
 
-    // Normalize insured info (handle snake_case)
+    // Normalize insured info (handle both camelCase and snake_case)
     const normalize = (data: any) => {
       if (!data) {
         console.log('[AUTO-SUBMIT] No insured info data, using submission business name');
@@ -111,6 +149,15 @@ export async function POST(
           contactEmail: '',
           address: '',
           operationDescription: '',
+          fein: '',
+          dba: '',
+          ownershipType: '',
+          yearsAtLocation: null,
+          constructionType: '',
+          totalSqFootage: null,
+          yearBuilt: null,
+          generalLiability: {},
+          propertyCoverage: {},
         };
       }
       const normalized = {
@@ -120,6 +167,16 @@ export async function POST(
         contactEmail: data.contactEmail || data.contact_email || '',
         address: data.address || '',
         operationDescription: data.operationDescription || data.operation_description || '',
+        fein: data.fein || data.fein_id || data.federal_employer_id || '',
+        dba: data.dba || '',
+        ownershipType: data.ownershipType || data.ownership_type || '',
+        yearsAtLocation: data.yearsAtLocation || data.years_at_location || null,
+        constructionType: data.constructionType || data.construction_type || '',
+        totalSqFootage: data.totalSqFootage || data.total_sq_footage || null,
+        yearBuilt: data.yearBuilt || data.year_built || null,
+        generalLiability: data.generalLiability || data.general_liability || {},
+        propertyCoverage: data.propertyCoverage || data.property_coverage || {},
+        noOfStories: (data as any).noOfStories || (data as any).no_of_stories || null,
       };
       console.log('[AUTO-SUBMIT] Normalized data:', normalized);
       return normalized;
@@ -135,6 +192,23 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    // Validate FEIN format
+    const feinValidation = validateFEIN(normalized.fein);
+    if (!feinValidation.valid) {
+      console.error('[AUTO-SUBMIT] Validation failed: FEIN invalid', feinValidation.error);
+      return NextResponse.json(
+        { 
+          error: feinValidation.error || 'FEIN ID is required',
+          details: 'FEIN must be in format XX-XXXXXXX (e.g., 58-3247891)',
+          field: 'fein'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Format FEIN to ensure correct format
+    const formattedFEIN = formatFEIN(normalized.fein);
 
     if (!normalized.address) {
       console.error('[AUTO-SUBMIT] Validation failed: Address missing');
@@ -167,8 +241,16 @@ export async function POST(
     // Extract state
     const state = extractState(normalized.address);
 
-    // Prepare webhook payload
+    // Prepare webhook payload with new format including quote automation
     const taskId = `submission_${submissionId}_${Date.now()}`;
+    
+    // Extract quote data fields
+    const gasolineSalesYearly = (normalized.generalLiability as any)?.gasolineSalesYearly || 
+                                (normalized.generalLiability as any)?.gasoline_sales_yearly || null;
+    const insideSalesYearly = (normalized.generalLiability as any)?.insideSalesYearly || 
+                              (normalized.generalLiability as any)?.inside_sales_yearly || null;
+    const bi = (normalized.propertyCoverage as any)?.bi || null;
+    const bpp = (normalized.propertyCoverage as any)?.bpp || null;
     
     const payload = {
       action: 'start_automation',
@@ -178,7 +260,7 @@ export async function POST(
           firstName: firstName || 'N/A',
           lastName: lastName || 'N/A',
           companyName: normalized.corporationName,
-          fein: '', // FEIN not stored in current schema - can be added later
+          fein: formattedFEIN, // Use formatted FEIN
           description: normalized.operationDescription || 'Business operations',
           addressLine1: addressLine1,
           zipCode: zipCode,
@@ -192,8 +274,30 @@ export async function POST(
           producer: 'Shahnaz Sutar', // Default producer
         },
         save_form: true,
+        run_quote_automation: true, // Enable quote automation
+        quote_data: {
+          // Map our insured info fields to RPA quote_data format
+          dba: normalized.dba || '',
+          org_type: normalized.ownershipType || '',
+          years_at_location: normalized.yearsAtLocation ? String(normalized.yearsAtLocation) : '',
+          no_of_gallons_annual: gasolineSalesYearly ? String(gasolineSalesYearly) : '',
+          inside_sales: insideSalesYearly ? String(insideSalesYearly) : '',
+          construction_type: normalized.constructionType || '',
+          no_of_stories: (normalized as any).noOfStories ? String((normalized as any).noOfStories) : '',
+          square_footage: normalized.totalSqFootage ? String(normalized.totalSqFootage) : '',
+          year_built: normalized.yearBuilt ? String(normalized.yearBuilt) : '',
+          limit_business_income: bi ? String(bi) : '',
+          limit_personal_property: bpp ? String(bpp) : '',
+          building_description: normalized.operationDescription || '',
+        },
       },
     };
+
+    console.log('[AUTO-SUBMIT] Payload prepared:', {
+      taskId,
+      hasQuoteData: !!payload.data.quote_data,
+      quoteDataFields: Object.keys(payload.data.quote_data),
+    });
 
     // Send to RPA webhook
     const webhookUrl = process.env.RPA_WEBHOOK_URL || 'https://encova-submission-bot-rpa-production.up.railway.app/webhook';
@@ -217,12 +321,32 @@ export async function POST(
 
     const result = await response.json();
 
-    return NextResponse.json({
+    // Build response with new RPA response format
+    const responseData: any = {
       success: true,
-      message: 'Submission sent to RPA successfully',
+      message: result.message || 'Submission sent to RPA successfully',
       taskId: taskId,
       status: result.status || 'accepted',
-    });
+    };
+
+    // Include account creation info if available
+    if (result.account_created) {
+      responseData.accountCreated = true;
+      responseData.accountNumber = result.account_number;
+      responseData.quoteUrl = result.quote_url;
+    }
+
+    // Include quote automation info if available
+    if (result.quote_automation) {
+      responseData.quoteAutomation = {
+        success: result.quote_automation.success,
+        message: result.quote_automation.message,
+      };
+    }
+
+    console.log('[AUTO-SUBMIT] RPA Response:', responseData);
+
+    return NextResponse.json(responseData);
 
   } catch (error: any) {
     console.error('Auto-submit error:', error);

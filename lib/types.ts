@@ -57,6 +57,7 @@ export interface InsuredInformation {
   leasedOutSpace?: string;
   protectionClass?: string;
   additionalInsured?: string;
+  fein?: string; // Federal Employer Identification Number
   alarmInfo?: any;
   fireInfo?: any;
   propertyCoverage?: any;

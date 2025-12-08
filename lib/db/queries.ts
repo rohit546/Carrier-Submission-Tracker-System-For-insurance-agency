@@ -407,6 +407,7 @@ export async function getInsuredInformation(insuredInfoId: string) {
     leasedOutSpace: row.leased_out_space,
     protectionClass: row.protection_class,
     additionalInsured: row.additional_insured,
+    fein: row.fein || row.fein_id || row.federal_employer_id || null, // Try multiple possible column names
     alarmInfo: row.alarm_info,
     fireInfo: row.fire_info,
     propertyCoverage: row.property_coverage,
@@ -417,6 +418,143 @@ export async function getInsuredInformation(insuredInfoId: string) {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
+}
+
+export async function updateInsuredInformation(
+  insuredInfoId: string,
+  updates: Partial<{
+    ownershipType: string | null;
+    corporationName: string;
+    contactName: string | null;
+    contactNumber: string | null;
+    contactEmail: string | null;
+    leadSource: string | null;
+    proposedEffectiveDate: string | null;
+    priorCarrier: string | null;
+    targetPremium: number | null;
+    applicantIs: string | null;
+    operationDescription: string | null;
+    dba: string | null;
+    address: string | null;
+    hoursOfOperation: string | null;
+    noOfMPOs: number | null;
+    constructionType: string | null;
+    yearsExpInBusiness: number | null;
+    yearsAtLocation: number | null;
+    yearBuilt: number | null;
+    yearLatestUpdate: number | null;
+    totalSqFootage: number | null;
+    leasedOutSpace: string | null;
+    protectionClass: string | null;
+    additionalInsured: string | null;
+    fein: string | null;
+    alarmInfo: any;
+    fireInfo: any;
+    propertyCoverage: any;
+    generalLiability: any;
+    workersCompensation: any;
+  }>
+) {
+  // Validate required field
+  if (updates.corporationName !== undefined && !updates.corporationName?.trim()) {
+    throw new Error('Corporation name is required');
+  }
+
+  // Get current values first
+  const current = await getInsuredInformation(insuredInfoId);
+  if (!current) {
+    throw new Error('Insured information not found');
+  }
+
+  // Build UPDATE query - only update fields that are provided
+  await sql`
+    UPDATE insured_information
+    SET
+      ownership_type = ${updates.ownershipType !== undefined ? updates.ownershipType : current.ownershipType},
+      corporation_name = ${updates.corporationName !== undefined ? updates.corporationName : current.corporationName},
+      contact_name = ${updates.contactName !== undefined ? updates.contactName : current.contactName},
+      contact_number = ${updates.contactNumber !== undefined ? updates.contactNumber : current.contactNumber},
+      contact_email = ${updates.contactEmail !== undefined ? updates.contactEmail : current.contactEmail},
+      lead_source = ${updates.leadSource !== undefined ? updates.leadSource : current.leadSource},
+      proposed_effective_date = ${updates.proposedEffectiveDate !== undefined ? (updates.proposedEffectiveDate ? new Date(updates.proposedEffectiveDate) : null) : (current.proposedEffectiveDate ? new Date(current.proposedEffectiveDate) : null)},
+      prior_carrier = ${updates.priorCarrier !== undefined ? updates.priorCarrier : current.priorCarrier},
+      target_premium = ${updates.targetPremium !== undefined ? updates.targetPremium : current.targetPremium},
+      applicant_is = ${updates.applicantIs !== undefined ? updates.applicantIs : current.applicantIs},
+      operation_description = ${updates.operationDescription !== undefined ? updates.operationDescription : current.operationDescription},
+      dba = ${updates.dba !== undefined ? updates.dba : current.dba},
+      address = ${updates.address !== undefined ? updates.address : current.address},
+      hours_of_operation = ${updates.hoursOfOperation !== undefined ? updates.hoursOfOperation : current.hoursOfOperation},
+      no_of_mpos = ${updates.noOfMPOs !== undefined ? updates.noOfMPOs : current.noOfMPOs},
+      construction_type = ${updates.constructionType !== undefined ? updates.constructionType : current.constructionType},
+      years_exp_in_business = ${updates.yearsExpInBusiness !== undefined ? updates.yearsExpInBusiness : current.yearsExpInBusiness},
+      years_at_location = ${updates.yearsAtLocation !== undefined ? updates.yearsAtLocation : current.yearsAtLocation},
+      year_built = ${updates.yearBuilt !== undefined ? updates.yearBuilt : current.yearBuilt},
+      year_latest_update = ${updates.yearLatestUpdate !== undefined ? updates.yearLatestUpdate : current.yearLatestUpdate},
+      total_sq_footage = ${updates.totalSqFootage !== undefined ? updates.totalSqFootage : current.totalSqFootage},
+      leased_out_space = ${updates.leasedOutSpace !== undefined ? updates.leasedOutSpace : current.leasedOutSpace},
+      protection_class = ${updates.protectionClass !== undefined ? updates.protectionClass : current.protectionClass},
+      additional_insured = ${updates.additionalInsured !== undefined ? updates.additionalInsured : current.additionalInsured},
+      fein = ${updates.fein !== undefined ? updates.fein : current.fein},
+      alarm_info = ${updates.alarmInfo !== undefined ? JSON.stringify(updates.alarmInfo) : JSON.stringify(current.alarmInfo || {})}::jsonb,
+      fire_info = ${updates.fireInfo !== undefined ? JSON.stringify(updates.fireInfo) : JSON.stringify(current.fireInfo || {})}::jsonb,
+      property_coverage = ${updates.propertyCoverage !== undefined ? JSON.stringify(updates.propertyCoverage) : JSON.stringify(current.propertyCoverage || {})}::jsonb,
+      general_liability = ${updates.generalLiability !== undefined ? JSON.stringify(updates.generalLiability) : JSON.stringify(current.generalLiability || {})}::jsonb,
+      workers_compensation = ${updates.workersCompensation !== undefined ? JSON.stringify(updates.workersCompensation) : JSON.stringify(current.workersCompensation || {})}::jsonb,
+      updated_at = NOW()
+    WHERE id = ${insuredInfoId}
+  `;
+
+  // Also update the snapshot in submissions table
+  const updatedInfo = await getInsuredInformation(insuredInfoId);
+  if (updatedInfo) {
+    // Format for snapshot (convert to camelCase)
+    const snapshot = {
+      id: updatedInfo.id,
+      uniqueIdentifier: updatedInfo.uniqueIdentifier,
+      ownershipType: updatedInfo.ownershipType,
+      corporationName: updatedInfo.corporationName,
+      contactName: updatedInfo.contactName,
+      contactNumber: updatedInfo.contactNumber,
+      contactEmail: updatedInfo.contactEmail,
+      leadSource: updatedInfo.leadSource,
+      proposedEffectiveDate: updatedInfo.proposedEffectiveDate,
+      priorCarrier: updatedInfo.priorCarrier,
+      targetPremium: updatedInfo.targetPremium,
+      applicantIs: updatedInfo.applicantIs,
+      operationDescription: updatedInfo.operationDescription,
+      dba: updatedInfo.dba,
+      address: updatedInfo.address,
+      hoursOfOperation: updatedInfo.hoursOfOperation,
+      noOfMPOs: updatedInfo.noOfMPOs,
+      constructionType: updatedInfo.constructionType,
+      yearsExpInBusiness: updatedInfo.yearsExpInBusiness,
+      yearsAtLocation: updatedInfo.yearsAtLocation,
+      yearBuilt: updatedInfo.yearBuilt,
+      yearLatestUpdate: updatedInfo.yearLatestUpdate,
+      totalSqFootage: updatedInfo.totalSqFootage,
+      leasedOutSpace: updatedInfo.leasedOutSpace,
+      protectionClass: updatedInfo.protectionClass,
+      additionalInsured: updatedInfo.additionalInsured,
+      fein: updatedInfo.fein,
+      alarmInfo: updatedInfo.alarmInfo,
+      fireInfo: updatedInfo.fireInfo,
+      propertyCoverage: updatedInfo.propertyCoverage,
+      generalLiability: updatedInfo.generalLiability,
+      workersCompensation: updatedInfo.workersCompensation,
+      source: updatedInfo.source,
+      eformSubmissionId: updatedInfo.eformSubmissionId,
+      createdAt: updatedInfo.createdAt,
+      updatedAt: updatedInfo.updatedAt,
+    };
+
+    await sql`
+      UPDATE submissions
+      SET insured_info_snapshot = ${JSON.stringify(snapshot)}::jsonb
+      WHERE insured_info_id = ${insuredInfoId}
+    `;
+  }
+
+  return updatedInfo;
 }
 
 export async function createSubmission(submission: Omit<Submission, 'id' | 'createdAt' | 'updatedAt'>): Promise<Submission> {

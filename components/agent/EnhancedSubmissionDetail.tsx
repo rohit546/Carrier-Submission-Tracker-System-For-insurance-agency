@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Submission, BusinessType, Carrier, CarrierQuote, InsuredInformation } from '@/lib/types';
 import InsuredInfoSection from './InsuredInfoSection';
+import AutoSubmitModal from './AutoSubmitModal';
 import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send, Rocket } from 'lucide-react';
 
 interface CarrierAppetiteDetail {
@@ -207,6 +208,8 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
     }
   }
 
+  const [showAutoSubmitModal, setShowAutoSubmitModal] = useState(false);
+
   async function handleAutoSubmit() {
     setSubmitting(true);
     setSubmitStatus(null);
@@ -224,6 +227,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
           success: true,
           message: result.message || 'Submission sent to RPA successfully',
         });
+        setShowAutoSubmitModal(false); // Close modal on success
         // Clear status after 5 seconds
         setTimeout(() => setSubmitStatus(null), 5000);
       } else {
@@ -283,22 +287,13 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={handleAutoSubmit}
+            onClick={() => setShowAutoSubmitModal(true)}
             disabled={submitting || !insuredInfo}
             className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             title={!insuredInfo ? 'Insured information is required' : 'Submit to RPA automation'}
           >
-            {submitting ? (
-              <>
-                <span className="animate-spin">⏳</span>
-                Submitting...
-              </>
-            ) : (
-              <>
-                <Rocket className="w-4 h-4" />
-                Auto Submit
-              </>
-            )}
+            <Rocket className="w-4 h-4" />
+            Auto Submit
           </button>
           <Link href="/agent" className="btn-secondary text-sm">
             Back to List
@@ -343,8 +338,11 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
       )}
 
       {/* Insured Information Section - Show First */}
-      {insuredInfo ? (
-        <InsuredInfoSection insuredInfo={insuredInfo} />
+      {insuredInfo && submission.insuredInfoId ? (
+        <InsuredInfoSection 
+          insuredInfo={insuredInfo} 
+          insuredInfoId={submission.insuredInfoId}
+        />
       ) : submission.insuredInfoId ? (
         <div className="card p-6 mb-6 bg-yellow-50 border border-yellow-200">
           <p className="text-sm text-yellow-800">
@@ -629,6 +627,15 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
           </p>
         </div>
       )}
+
+      {/* Auto Submit Modal */}
+      <AutoSubmitModal
+        isOpen={showAutoSubmitModal}
+        onClose={() => setShowAutoSubmitModal(false)}
+        onConfirm={handleAutoSubmit}
+        insuredInfo={insuredInfo}
+        submitting={submitting}
+      />
     </div>
   );
 }

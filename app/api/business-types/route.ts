@@ -3,8 +3,16 @@ import { getCurrentUser } from '@/lib/auth';
 import { getBusinessTypes, createBusinessType } from '@/lib/db/queries';
 
 export async function GET() {
-  const types = await getBusinessTypes();
-  return NextResponse.json(types);
+  try {
+    const types = await getBusinessTypes();
+    return NextResponse.json(types);
+  } catch (error: any) {
+    console.error('Error fetching business types:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch business types' },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
