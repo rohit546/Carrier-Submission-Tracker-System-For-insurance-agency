@@ -62,10 +62,11 @@ function extractState(address: string | null | undefined): string {
   return 'GA'; // Default
 }
 
-// Helper to validate FEIN format (XX-XXXXXXX)
+// Helper to validate FEIN format (XX-XXXXXXX) - optional field
 function validateFEIN(fein: string | null | undefined): { valid: boolean; error?: string } {
+  // FEIN is optional, so if empty, it's valid
   if (!fein || !fein.trim()) {
-    return { valid: false, error: 'FEIN is required' };
+    return { valid: true };
   }
 
   // Remove any spaces
@@ -193,13 +194,13 @@ export async function POST(
       );
     }
 
-    // Validate FEIN format
+    // Validate FEIN format (optional - only validate if provided)
     const feinValidation = validateFEIN(normalized.fein);
     if (!feinValidation.valid) {
       console.error('[AUTO-SUBMIT] Validation failed: FEIN invalid', feinValidation.error);
       return NextResponse.json(
         { 
-          error: feinValidation.error || 'FEIN ID is required',
+          error: feinValidation.error || 'FEIN format is invalid',
           details: 'FEIN must be in format XX-XXXXXXX (e.g., 58-3247891)',
           field: 'fein'
         },
@@ -207,8 +208,8 @@ export async function POST(
       );
     }
 
-    // Format FEIN to ensure correct format
-    const formattedFEIN = formatFEIN(normalized.fein);
+    // Format FEIN to ensure correct format (if provided)
+    const formattedFEIN = normalized.fein ? formatFEIN(normalized.fein) : '';
 
     if (!normalized.address) {
       console.error('[AUTO-SUBMIT] Validation failed: Address missing');

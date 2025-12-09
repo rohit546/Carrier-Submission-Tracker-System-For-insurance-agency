@@ -43,10 +43,11 @@ function extractZipCode(address: string | null | undefined): string {
   return zipMatch ? zipMatch[1] : '';
 }
 
-// Helper to validate FEIN format (XX-XXXXXXX)
+// Helper to validate FEIN format (XX-XXXXXXX) - optional field
 function validateFEIN(fein: string | null | undefined): { valid: boolean; error?: string } {
+  // FEIN is optional, so if empty, it's valid
   if (!fein || !fein.trim()) {
-    return { valid: false, error: 'FEIN is required' };
+    return { valid: true };
   }
 
   // Remove any spaces
@@ -174,12 +175,13 @@ export default function AutoSubmitModal({
       completeFields++;
     }
 
-    // FEIN - check if exists and validate format
+    // FEIN - optional, but validate format if provided
     const fein = normalizedInfo.fein || '';
     const feinValidation = validateFEIN(fein);
     if (!feinValidation.valid) {
-      errors.push(feinValidation.error || 'FEIN ID is required');
-    } else {
+      errors.push(feinValidation.error || 'FEIN format is invalid');
+    } else if (fein.trim()) {
+      // Only count as complete if FEIN is provided
       completeFields++;
     }
 
@@ -331,8 +333,8 @@ export default function AutoSubmitModal({
                 </p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">FEIN ID</label>
-                <p className={`text-black ${!feinValidation.valid || fein === 'N/A' ? 'text-red-600' : ''}`}>
+                <label className="text-sm font-medium text-gray-600">FEIN ID <span className="text-gray-400 text-xs">(Optional)</span></label>
+                <p className={`text-black ${!feinValidation.valid && fein !== 'N/A' ? 'text-red-600' : ''}`}>
                   {fein}
                 </p>
                 {!feinValidation.valid && fein !== 'N/A' && (
