@@ -119,6 +119,192 @@ function parsePhone(phone: string | null | undefined): { area: string; prefix: s
   return { area: '', prefix: '', suffix: '' };
 }
 
+// ============================================================================
+// VALIDATION FUNCTIONS
+// ============================================================================
+
+// Validate phone number - must be 10 digits
+function validatePhone(phone: string | null | undefined): { valid: boolean; error?: string; formatted?: string } {
+  if (!phone || !phone.trim()) {
+    return { valid: false, error: 'Phone number is required' };
+  }
+  
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, '');
+  
+  // Handle 11 digits starting with 1 (US country code)
+  const normalizedDigits = digits.length === 11 && digits.startsWith('1') 
+    ? digits.substring(1) 
+    : digits;
+  
+  if (normalizedDigits.length !== 10) {
+    return { 
+      valid: false, 
+      error: `Phone must be 10 digits (got ${normalizedDigits.length})` 
+    };
+  }
+  
+  // Check for invalid patterns (all same digit, sequential)
+  if (/^(\d)\1{9}$/.test(normalizedDigits)) {
+    return { valid: false, error: 'Invalid phone number (all same digits)' };
+  }
+  
+  // Area code cannot start with 0 or 1
+  if (normalizedDigits[0] === '0' || normalizedDigits[0] === '1') {
+    return { valid: false, error: 'Invalid area code (cannot start with 0 or 1)' };
+  }
+  
+  // Format as (XXX) XXX-XXXX
+  const formatted = `(${normalizedDigits.substring(0, 3)}) ${normalizedDigits.substring(3, 6)}-${normalizedDigits.substring(6)}`;
+  
+  return { valid: true, formatted };
+}
+
+// Validate email - RFC 5322 compliant (simplified)
+function validateEmail(email: string | null | undefined): { valid: boolean; error?: string } {
+  if (!email || !email.trim()) {
+    return { valid: false, error: 'Email is required' };
+  }
+  
+  const trimmedEmail = email.trim().toLowerCase();
+  
+  // Basic structure check: something@something.something
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(trimmedEmail)) {
+    return { valid: false, error: 'Invalid email format (must be like name@domain.com)' };
+  }
+  
+  // More detailed validation
+  const [localPart, domain] = trimmedEmail.split('@');
+  
+  // Local part validation
+  if (localPart.length === 0 || localPart.length > 64) {
+    return { valid: false, error: 'Invalid email: local part too short or long' };
+  }
+  
+  // Cannot start or end with dot
+  if (localPart.startsWith('.') || localPart.endsWith('.')) {
+    return { valid: false, error: 'Invalid email: cannot start or end with dot' };
+  }
+  
+  // No consecutive dots
+  if (localPart.includes('..')) {
+    return { valid: false, error: 'Invalid email: consecutive dots not allowed' };
+  }
+  
+  // Domain validation
+  if (domain.length === 0 || domain.length > 255) {
+    return { valid: false, error: 'Invalid email: domain too short or long' };
+  }
+  
+  // Domain must have at least one dot
+  if (!domain.includes('.')) {
+    return { valid: false, error: 'Invalid email: domain must include extension' };
+  }
+  
+  // TLD must be at least 2 characters
+  const tld = domain.split('.').pop() || '';
+  if (tld.length < 2) {
+    return { valid: false, error: 'Invalid email: domain extension too short' };
+  }
+  
+  // TLD must be letters only
+  if (!/^[a-z]+$/.test(tld)) {
+    return { valid: false, error: 'Invalid email: domain extension must be letters' };
+  }
+  
+  return { valid: true };
+}
+
+// Validate zip code - 5 digits or 5+4 format
+function validateZipCode(zip: string | null | undefined): { valid: boolean; error?: string } {
+  if (!zip || !zip.trim()) {
+    return { valid: false, error: 'Zip code is required' };
+  }
+  
+  const zipPattern = /^\d{5}(-\d{4})?$/;
+  if (!zipPattern.test(zip.trim())) {
+    return { valid: false, error: 'Zip must be 5 digits (XXXXX) or 5+4 (XXXXX-XXXX)' };
+  }
+  
+  return { valid: true };
+}
+
+// Validate years in business - reasonable range
+function validateYearsInBusiness(years: number | string | null | undefined): { valid: boolean; error?: string } {
+  if (years === null || years === undefined || years === '') {
+    return { valid: false, error: 'Years in business is required' };
+  }
+  
+  const num = typeof years === 'string' ? parseInt(years, 10) : years;
+  
+  if (isNaN(num)) {
+    return { valid: false, error: 'Years in business must be a number' };
+  }
+  
+  if (num < 0 || num > 150) {
+    return { valid: false, error: 'Years in business must be between 0 and 150' };
+  }
+  
+  return { valid: true };
+}
+
+// Validate corporation name
+function validateCorporationName(name: string | null | undefined): { valid: boolean; error?: string } {
+  if (!name || !name.trim()) {
+    return { valid: false, error: 'Corporation name is required' };
+  }
+  
+  if (name.trim().length < 2) {
+    return { valid: false, error: 'Corporation name must be at least 2 characters' };
+  }
+  
+  if (name.trim().length > 200) {
+    return { valid: false, error: 'Corporation name is too long (max 200 characters)' };
+  }
+  
+  return { valid: true };
+}
+
+// Validate contact name - must have first and last name
+function validateContactName(name: string | null | undefined): { valid: boolean; error?: string; firstName?: string; lastName?: string } {
+  if (!name || !name.trim()) {
+    return { valid: false, error: 'Contact name is required' };
+  }
+  
+  const parts = name.trim().split(/\s+/);
+  
+  if (parts.length < 2) {
+    return { valid: false, error: 'Contact must have first and last name' };
+  }
+  
+  const firstName = parts[0];
+  const lastName = parts.slice(1).join(' ');
+  
+  if (firstName.length < 1) {
+    return { valid: false, error: 'First name is required' };
+  }
+  
+  if (lastName.length < 1) {
+    return { valid: false, error: 'Last name is required' };
+  }
+  
+  return { valid: true, firstName, lastName };
+}
+
+// Validate description - minimum length
+function validateDescription(desc: string | null | undefined): { valid: boolean; error?: string } {
+  if (!desc || !desc.trim()) {
+    return { valid: false, error: 'Description of operations is required' };
+  }
+  
+  if (desc.trim().length < 10) {
+    return { valid: false, error: 'Description must be at least 10 characters' };
+  }
+  
+  return { valid: true };
+}
+
 // Helper to normalize insured info (handle both camelCase and snake_case)
 function normalizeInsuredInfo(data: any): InsuredInformation | null {
   if (!data) return null;
@@ -199,29 +385,45 @@ export default function AutoSubmitModal({
     let totalFields = 0;
 
     // === SHARED REQUIRED FIELDS ===
-    totalFields += 4;
-    
-    // Corporation Name - required for both
-    if (!normalizedInfo.corporationName?.trim()) {
-      eErrors.push('Corporation name is required');
-      gErrors.push('Applicant name is required');
+    totalFields += 5; // corp name, contact name, address, phone, email
+
+    // 1. Corporation Name - required for both
+    const corpValidation = validateCorporationName(normalizedInfo.corporationName);
+    if (!corpValidation.valid) {
+      eErrors.push(corpValidation.error || 'Corporation name is required');
+      gErrors.push(corpValidation.error || 'Applicant name is required');
     } else {
       completeFields++;
     }
 
-    // Contact Name - required for both
-    const { firstName, lastName } = parseName(normalizedInfo.contactName);
-    if (!normalizedInfo.contactName?.trim()) {
-      eErrors.push('Contact name is required');
-      gErrors.push('Contact name is required');
+    // 2. Contact Name - required for both (must have first & last name)
+    const contactValidation = validateContactName(normalizedInfo.contactName);
+    if (!contactValidation.valid) {
+      eErrors.push(contactValidation.error || 'Contact name is required');
+      gErrors.push(contactValidation.error || 'Contact name is required');
     } else {
-      if (!firstName?.trim() || !lastName?.trim()) {
-        eErrors.push('Contact first and last name are required');
-      }
       completeFields++;
     }
 
-    // Address with Zip - required for both
+    // 3. Phone Number - required for both (must be valid 10-digit)
+    const phoneValidation = validatePhone(normalizedInfo.contactNumber);
+    if (!phoneValidation.valid) {
+      eErrors.push(phoneValidation.error || 'Valid phone number is required');
+      gErrors.push(phoneValidation.error || 'Valid phone number is required');
+    } else {
+      completeFields++;
+    }
+
+    // 4. Email - required and must be valid format
+    const emailValidation = validateEmail(normalizedInfo.contactEmail);
+    if (!emailValidation.valid) {
+      eErrors.push(emailValidation.error || 'Valid email is required');
+      gErrors.push(emailValidation.error || 'Valid email is required');
+    } else {
+      completeFields++;
+    }
+
+    // 5. Address with Zip, City, State - required for both
     if (!normalizedInfo.address?.trim()) {
       eErrors.push('Address is required');
       gErrors.push('Mailing address is required');
@@ -230,9 +432,11 @@ export default function AutoSubmitModal({
       const city = extractCity(normalizedInfo.address);
       const state = extractState(normalizedInfo.address);
       
-      if (!zipCode) {
-        eErrors.push('Address must include a valid zip code');
-        gErrors.push('Zip code is required');
+      // Validate zip code format
+      const zipValidation = validateZipCode(zipCode);
+      if (!zipValidation.valid) {
+        eErrors.push(zipValidation.error || 'Valid zip code is required');
+        gErrors.push(zipValidation.error || 'Valid zip code is required');
       }
       if (!city) {
         gErrors.push('City is required in address');
@@ -240,19 +444,7 @@ export default function AutoSubmitModal({
       if (!state) {
         gErrors.push('State is required in address');
       }
-      if (zipCode) completeFields++;
-    }
-
-    // Phone - required for both
-    if (!normalizedInfo.contactNumber?.trim()) {
-      eErrors.push('Office phone is required');
-      gErrors.push('Contact phone is required');
-    } else {
-      const phone = parsePhone(normalizedInfo.contactNumber);
-      if (!phone.area || !phone.prefix || !phone.suffix) {
-        gErrors.push('Phone must be a valid 10-digit number');
-      }
-      completeFields++;
+      if (zipCode && zipValidation.valid) completeFields++;
     }
 
     // === GUARD-SPECIFIC REQUIRED FIELDS ===
@@ -260,15 +452,17 @@ export default function AutoSubmitModal({
 
     // Years in Business - required for Guard
     const yearsInBusiness = normalizedInfo.yearsExpInBusiness || normalizedInfo.yearsAtLocation;
-    if (!yearsInBusiness) {
-      gErrors.push('Years in business is required');
+    const yearsValidation = validateYearsInBusiness(yearsInBusiness);
+    if (!yearsValidation.valid) {
+      gErrors.push(yearsValidation.error || 'Years in business is required');
     } else {
       completeFields++;
     }
 
     // Description of Operations - required for Guard
-    if (!normalizedInfo.operationDescription?.trim()) {
-      gErrors.push('Description of operations is required');
+    const descValidation = validateDescription(normalizedInfo.operationDescription);
+    if (!descValidation.valid) {
+      gErrors.push(descValidation.error || 'Description of operations is required');
     } else {
       completeFields++;
     }
@@ -324,19 +518,31 @@ export default function AutoSubmitModal({
     );
   }
 
-  const { firstName, lastName } = parseName(normalizedInfo.contactName);
+  // Validation results for display
+  const corpValidation = validateCorporationName(normalizedInfo.corporationName);
+  const contactValidation = validateContactName(normalizedInfo.contactName);
+  const phoneValidation = validatePhone(normalizedInfo.contactNumber);
+  const emailValidation = validateEmail(normalizedInfo.contactEmail);
   const feinRaw = normalizedInfo.fein || '';
   const feinValidation = validateFEIN(feinRaw);
   const fein = feinRaw ? (feinValidation.valid ? formatFEIN(feinRaw) : feinRaw) : 'N/A';
   const zipCode = extractZipCode(normalizedInfo.address || '');
   const city = extractCity(normalizedInfo.address || '');
   const state = extractState(normalizedInfo.address || '');
+  const zipValidation = validateZipCode(zipCode);
   const phone = parsePhone(normalizedInfo.contactNumber);
   const gasolineSales = (normalizedInfo.generalLiability as any)?.gasolineSalesYearly || null;
   const insideSales = (normalizedInfo.generalLiability as any)?.insideSalesYearly || null;
   const bi = (normalizedInfo.propertyCoverage as any)?.bi || null;
   const bpp = (normalizedInfo.propertyCoverage as any)?.bpp || null;
   const yearsInBusiness = normalizedInfo.yearsExpInBusiness || normalizedInfo.yearsAtLocation;
+  const yearsValidation = validateYearsInBusiness(yearsInBusiness);
+  const descValidation = validateDescription(normalizedInfo.operationDescription);
+  
+  // Get first/last name from validation result
+  const { firstName, lastName } = contactValidation.valid 
+    ? { firstName: contactValidation.firstName, lastName: contactValidation.lastName }
+    : parseName(normalizedInfo.contactName);
 
   // Check if any selected carrier has errors
   const hasEncovaErrors = selectedCarriers.includes('encova') && encovaErrors.length > 0;
@@ -512,48 +718,83 @@ export default function AutoSubmitModal({
               Required Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Corporation Name */}
               <div>
                 <label className="text-sm font-medium text-gray-600">Corporation Name *</label>
-                <p className={`text-black font-medium ${!normalizedInfo.corporationName?.trim() ? 'text-red-600' : ''}`}>
+                <p className={`text-black font-medium ${!corpValidation.valid ? 'text-red-600' : ''}`}>
                   {normalizedInfo.corporationName || 'Missing'}
                 </p>
+                {!corpValidation.valid && corpValidation.error && (
+                  <p className="text-xs text-red-600 mt-1">{corpValidation.error}</p>
+                )}
               </div>
+
+              {/* Contact Name */}
               <div>
                 <label className="text-sm font-medium text-gray-600">Contact Name *</label>
-                <p className={`text-black ${!normalizedInfo.contactName?.trim() ? 'text-red-600' : ''}`}>
+                <p className={`text-black ${!contactValidation.valid ? 'text-red-600' : ''}`}>
                   {normalizedInfo.contactName || 'Missing'}
                 </p>
-                {normalizedInfo.contactName && (
-                  <p className="text-xs text-gray-500">First: {firstName || 'N/A'} | Last: {lastName || 'N/A'}</p>
+                {contactValidation.valid ? (
+                  <p className="text-xs text-green-600">✓ First: {firstName} | Last: {lastName}</p>
+                ) : (
+                  <p className="text-xs text-red-600 mt-1">{contactValidation.error}</p>
                 )}
               </div>
+
+              {/* Phone Number */}
               <div>
                 <label className="text-sm font-medium text-gray-600">Office Phone *</label>
-                <p className={`text-black ${!normalizedInfo.contactNumber?.trim() ? 'text-red-600' : ''}`}>
+                <p className={`text-black ${!phoneValidation.valid ? 'text-red-600' : ''}`}>
                   {normalizedInfo.contactNumber || 'Missing'}
                 </p>
-                {phone.area && (
-                  <p className="text-xs text-gray-500">({phone.area}) {phone.prefix}-{phone.suffix}</p>
+                {phoneValidation.valid ? (
+                  <p className="text-xs text-green-600">✓ {phoneValidation.formatted}</p>
+                ) : (
+                  <p className="text-xs text-red-600 mt-1">{phoneValidation.error}</p>
                 )}
               </div>
+
+              {/* Email */}
+              <div>
+                <label className="text-sm font-medium text-gray-600">Email Address *</label>
+                <p className={`text-black ${!emailValidation.valid ? 'text-red-600' : ''}`}>
+                  {normalizedInfo.contactEmail || 'Missing'}
+                </p>
+                {emailValidation.valid ? (
+                  <p className="text-xs text-green-600">✓ Valid email format</p>
+                ) : (
+                  <p className="text-xs text-red-600 mt-1">{emailValidation.error}</p>
+                )}
+              </div>
+
+              {/* Address */}
               <div className="md:col-span-2">
                 <label className="text-sm font-medium text-gray-600">Address *</label>
                 <p className={`text-black ${!normalizedInfo.address?.trim() ? 'text-red-600' : ''}`}>
                   {normalizedInfo.address || 'Missing'}
                 </p>
-                <div className="flex flex-wrap gap-4 mt-1 text-xs text-gray-500">
-                  <span className={!city ? 'text-red-500' : ''}>City: {city || 'Missing'}</span>
-                  <span className={!state ? 'text-red-500' : ''}>State: {state || 'Missing'}</span>
-                  <span className={!zipCode ? 'text-red-500' : ''}>Zip: {zipCode || 'Missing'}</span>
+                <div className="flex flex-wrap gap-4 mt-1 text-xs">
+                  <span className={!city ? 'text-red-500' : 'text-green-600'}>
+                    {city ? `✓ City: ${city}` : '✗ City: Missing'}
+                  </span>
+                  <span className={!state ? 'text-red-500' : 'text-green-600'}>
+                    {state ? `✓ State: ${state}` : '✗ State: Missing'}
+                  </span>
+                  <span className={!zipValidation.valid ? 'text-red-500' : 'text-green-600'}>
+                    {zipValidation.valid ? `✓ Zip: ${zipCode}` : `✗ Zip: ${zipValidation.error || 'Missing'}`}
+                  </span>
                 </div>
               </div>
+
+              {/* FEIN */}
               <div>
                 <label className="text-sm font-medium text-gray-600">FEIN ID <span className="text-gray-400 text-xs">(Optional)</span></label>
                 <p className={`text-black ${!feinValidation.valid && fein !== 'N/A' ? 'text-red-600' : ''}`}>
                   {fein}
                 </p>
                 {!feinValidation.valid && fein !== 'N/A' && (
-                  <p className="text-xs text-red-600 mt-1">Format: XX-XXXXXXX</p>
+                  <p className="text-xs text-red-600 mt-1">{feinValidation.error}</p>
                 )}
               </div>
             </div>
@@ -567,16 +808,22 @@ export default function AutoSubmitModal({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-600">Years in Business *</label>
-                  <p className={`text-black ${!yearsInBusiness ? 'text-red-600' : ''}`}>
+                  <p className={`text-black ${!yearsValidation.valid ? 'text-red-600' : ''}`}>
                     {yearsInBusiness || 'Missing'}
                   </p>
+                  {!yearsValidation.valid && (
+                    <p className="text-xs text-red-600 mt-1">{yearsValidation.error}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-600">Description of Operations *</label>
-                  <p className={`text-black text-sm ${!normalizedInfo.operationDescription?.trim() ? 'text-red-600' : ''}`}>
+                  <p className={`text-black text-sm ${!descValidation.valid ? 'text-red-600' : ''}`}>
                     {normalizedInfo.operationDescription?.substring(0, 100) || 'Missing'}
                     {(normalizedInfo.operationDescription?.length || 0) > 100 && '...'}
                   </p>
+                  {!descValidation.valid && (
+                    <p className="text-xs text-red-600 mt-1">{descValidation.error}</p>
+                  )}
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">
@@ -589,10 +836,6 @@ export default function AutoSubmitModal({
           <div>
             <h3 className="text-lg font-semibold text-black mb-4">Optional Information (For Complete Automation)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-medium text-gray-600">Email Address</label>
-                <p className="text-black">{normalizedInfo.contactEmail || 'N/A'}</p>
-              </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">DBA</label>
                 <p className="text-black">{normalizedInfo.dba || 'N/A'}</p>
