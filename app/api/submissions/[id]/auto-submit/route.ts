@@ -258,31 +258,51 @@ function buildEncovaPayload(normalized: any, submissionId: string) {
   };
 }
 
-// Build Guard payload
+// Build Guard payload - SIMPLIFIED (server hardcodes many fields)
 function buildGuardPayload(normalized: any, submissionId: string) {
   const address = parseAddress(normalized.address);
   const phone = parsePhone(normalized.contactNumber);
   const yearsInBusiness = normalized.yearsExpInBusiness || normalized.yearsAtLocation || 0;
   
-  const gasolineSalesYearly = (normalized.generalLiability as any)?.gasolineSalesYearly || 
-                              (normalized.generalLiability as any)?.gasoline_sales_yearly || 0;
-  const insideSalesYearly = (normalized.generalLiability as any)?.insideSalesYearly || 
-                            (normalized.generalLiability as any)?.inside_sales_yearly || 0;
-  const combinedSales = gasolineSalesYearly + insideSalesYearly;
+  // Gasoline gallons - NOT dollars, don't include in combined sales
+  const gasolineGallons = Number((normalized.generalLiability as any)?.gasolineSalesYearly || 
+                              (normalized.generalLiability as any)?.gasoline_sales_yearly || 0);
+  // Inside sales - dollar amount
+  const insideSalesYearly = Number((normalized.generalLiability as any)?.insideSalesYearly || 
+                            (normalized.generalLiability as any)?.inside_sales_yearly || 0);
+  // Combined sales = only dollar-based sales (not gallons)
+  const combinedSales = insideSalesYearly;
+
+  // Map ownership type to legal entity code
+  // L=LLC, C=Corporation, P=Partnership, I=Individual, J=Joint Venture
+  const legalEntity = mapLegalEntity(normalized.ownershipType);
+  
+  // Map ownership for tenant/owner field
+  const ownershipType = normalized.ownershipType?.toLowerCase().includes('owner') ? 'owner' : 'tenant';
 
   return {
+    // Action & Task
     action: 'start_automation',
     task_id: `guard_${submissionId}_${Date.now()}`,
+    
+    // Create account flag
     create_account: true,
+    
+    // Account data - ONLY user-provided fields (server hardcodes the rest)
     account_data: {
-      legal_entity: mapLegalEntity(normalized.ownershipType),
+      // Business Entity Information
+      legal_entity: legalEntity,
       applicant_name: normalized.corporationName,
       dba: normalized.dba || '',
+      
+      // Business Address
       address1: address.addressLine1,
-      address2: address.addressLine2,
+      address2: address.addressLine2 || '',
       zipcode: address.zipCode,
       city: address.city,
       state: address.state,
+      
+      // Contact Information
       contact_name: normalized.contactName || '',
       contact_phone: {
         area: phone.area,
@@ -290,22 +310,23 @@ function buildGuardPayload(normalized: any, submissionId: string) {
         suffix: phone.suffix,
       },
       email: normalized.contactEmail || '',
-      website: '',
+      
+      // Business Details
       years_in_business: String(yearsInBusiness),
       description: normalized.operationDescription || '',
-      producer_id: '2774846',
-      csr_id: '16977940',
-      policy_inception: formatDate(normalized.proposedEffectiveDate) || formatDate(new Date().toISOString()),
-      headquarters_state: address.state,
-      industry_id: '11',
-      sub_industry_id: '45',
-      business_type_id: '127',
-      lines_of_business: ['CB'],
-      ownership_type: normalized.ownershipType?.toLowerCase().includes('owner') ? 'owner' : 'tenant',
+      
+      // Property Ownership
+      ownership_type: ownershipType,
+      
+      // NOTE: These fields are HARDCODED on server - not sending:
+      // website, producer_id, csr_id, policy_inception, headquarters_state,
+      // industry_id, sub_industry_id, business_type_id, lines_of_business
     },
+    
+    // Quote data - filled after account is created
     quote_data: {
       combined_sales: String(combinedSales),
-      gas_gallons: String(gasolineSalesYearly),
+      gas_gallons: String(gasolineGallons),
       year_built: normalized.yearBuilt ? String(normalized.yearBuilt) : '',
       square_footage: normalized.totalSqFootage ? String(normalized.totalSqFootage) : '',
       mpds: normalized.noOfMPOs ? String(normalized.noOfMPOs) : '0',

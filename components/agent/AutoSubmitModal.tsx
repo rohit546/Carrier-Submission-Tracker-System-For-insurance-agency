@@ -616,20 +616,20 @@ export default function AutoSubmitModal({
               <div>
                 <label className="text-sm font-medium text-gray-600">Gasoline Gallons (Annual)</label>
                 <p className="text-black">
-                  {gasolineSales ? gasolineSales.toLocaleString() : 'N/A'}
+                  {gasolineSales ? Number(gasolineSales).toLocaleString() : 'N/A'} gal
                 </p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">Inside Sales (Annual)</label>
                 <p className="text-black">
-                  {insideSales ? `$${insideSales.toLocaleString()}` : 'N/A'}
+                  {insideSales ? `$${Number(insideSales).toLocaleString()}` : 'N/A'}
                 </p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Combined Sales</label>
+                <label className="text-sm font-medium text-gray-600">Combined Sales (excl. gallons)</label>
                 <p className="text-black">
-                  {(gasolineSales || insideSales) 
-                    ? `$${((gasolineSales || 0) + (insideSales || 0)).toLocaleString()}` 
+                  {insideSales 
+                    ? `$${Number(insideSales).toLocaleString()}` 
                     : 'N/A'}
                 </p>
               </div>
@@ -658,17 +658,17 @@ export default function AutoSubmitModal({
               disabled={!isValid || submitting}
               className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? (
-                <>
-                  <span className="animate-spin">⏳</span>
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  <Rocket className="w-4 h-4" />
-                  Submit to RPA
-                </>
-              )}
+            {submitting ? (
+              <>
+                <span className="animate-spin">⏳</span>
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Rocket className="w-4 h-4" />
+                Submit
+              </>
+            )}
             </button>
           </div>
         </div>
