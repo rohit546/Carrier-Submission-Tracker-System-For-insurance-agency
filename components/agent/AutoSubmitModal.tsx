@@ -256,7 +256,7 @@ export default function AutoSubmitModal({
     }
 
     // === GUARD-SPECIFIC REQUIRED FIELDS ===
-    totalFields += 3;
+    totalFields += 2;
 
     // Years in Business - required for Guard
     const yearsInBusiness = normalizedInfo.yearsExpInBusiness || normalizedInfo.yearsAtLocation;
@@ -273,12 +273,7 @@ export default function AutoSubmitModal({
       completeFields++;
     }
 
-    // Policy Inception Date - required for Guard
-    if (!normalizedInfo.proposedEffectiveDate?.trim()) {
-      gErrors.push('Policy inception date is required');
-    } else {
-      completeFields++;
-    }
+    // Policy Inception Date - NOT required (auto-set by Guard automation)
 
     // === ENCOVA-SPECIFIC VALIDATION ===
     // FEIN - optional, but validate format if provided
@@ -569,7 +564,7 @@ export default function AutoSubmitModal({
                 <Shield className="w-4 h-4" />
                 Guard-Specific Required Fields
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-600">Years in Business *</label>
                   <p className={`text-black ${!yearsInBusiness ? 'text-red-600' : ''}`}>
@@ -577,12 +572,6 @@ export default function AutoSubmitModal({
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Policy Inception *</label>
-                  <p className={`text-black ${!normalizedInfo.proposedEffectiveDate?.trim() ? 'text-red-600' : ''}`}>
-                    {normalizedInfo.proposedEffectiveDate || 'Missing'}
-                  </p>
-                </div>
-                <div className="md:col-span-1">
                   <label className="text-sm font-medium text-gray-600">Description of Operations *</label>
                   <p className={`text-black text-sm ${!normalizedInfo.operationDescription?.trim() ? 'text-red-600' : ''}`}>
                     {normalizedInfo.operationDescription?.substring(0, 100) || 'Missing'}
@@ -590,6 +579,9 @@ export default function AutoSubmitModal({
                   </p>
                 </div>
               </div>
+              <p className="text-xs text-gray-500 mt-2">
+                * Policy inception date is auto-set by Guard automation
+              </p>
             </div>
           </div>
 

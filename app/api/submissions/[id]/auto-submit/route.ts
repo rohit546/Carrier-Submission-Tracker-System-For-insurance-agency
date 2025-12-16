@@ -445,12 +445,7 @@ export async function POST(
           { status: 400 }
         );
       }
-      if (!normalized.proposedEffectiveDate) {
-        return NextResponse.json(
-          { error: 'Policy inception date is required for Guard submission.' },
-          { status: 400 }
-        );
-      }
+      // Policy inception date is auto-set by Guard automation if not provided
       if (!address.city) {
         return NextResponse.json(
           { error: 'City is required in address for Guard submission.' },
