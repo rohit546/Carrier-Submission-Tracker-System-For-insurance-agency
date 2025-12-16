@@ -1,47 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSubmission, getInsuredInformation } from '@/lib/db/queries';
 
-// Helper to parse address and extract addressLine1 and zipCode
-function parseAddress(address: string | null | undefined): { addressLine1: string; zipCode: string } {
+// Carrier types
+type CarrierType = 'encova' | 'guard';
+
+// Webhook URLs
+const ENCOVA_WEBHOOK_URL = process.env.ENCOVA_WEBHOOK_URL || 'https://encova-submission-bot-rpa-production.up.railway.app/webhook';
+const GUARD_WEBHOOK_URL = process.env.GUARD_WEBHOOK_URL || 'https://guardsubmissionbot-production.up.railway.app/webhook';
+
+// Helper to parse address and extract components
+function parseAddress(address: string | null | undefined): { 
+  addressLine1: string; 
+  addressLine2: string;
+  city: string;
+  state: string;
+  zipCode: string;
+} {
   if (!address) {
-    return { addressLine1: '', zipCode: '' };
+    return { addressLine1: '', addressLine2: '', city: '', state: '', zipCode: '' };
   }
 
-  // Try to extract zip code (5 digits, possibly with -4 extension)
+  // Extract zip code
   const zipMatch = address.match(/\b(\d{5}(?:-\d{4})?)\b/);
   const zipCode = zipMatch ? zipMatch[1] : '';
 
-  // Remove zip code from address to get addressLine1
-  let addressLine1 = address.replace(/\b\d{5}(?:-\d{4})?\b/, '').trim();
-  
-  // Clean up any trailing commas or extra spaces
-  addressLine1 = addressLine1.replace(/,\s*$/, '').trim();
-
-  return { addressLine1: addressLine1 || address, zipCode };
-}
-
-// Helper to parse name into firstName and lastName
-function parseName(fullName: string | null | undefined): { firstName: string; lastName: string } {
-  if (!fullName) {
-    return { firstName: '', lastName: '' };
-  }
-
-  const parts = fullName.trim().split(/\s+/);
-  if (parts.length === 1) {
-    return { firstName: parts[0], lastName: '' };
-  }
-  
-  const firstName = parts[0];
-  const lastName = parts.slice(1).join(' ');
-  
-  return { firstName, lastName };
-}
-
-// Helper to extract state from address
-function extractState(address: string | null | undefined): string {
-  if (!address) return 'GA'; // Default to GA
-  
-  // Common state abbreviations
+  // Extract state
   const stateAbbreviations = [
     'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
     'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
@@ -50,55 +33,329 @@ function extractState(address: string | null | undefined): string {
     'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
   ];
   
-  // Look for state abbreviation in address (usually before zip code)
   const addressUpper = address.toUpperCase();
-  for (const state of stateAbbreviations) {
-    const regex = new RegExp(`\\b${state}\\b`);
+  let state = '';
+  for (const st of stateAbbreviations) {
+    const regex = new RegExp(`\\b${st}\\b`);
     if (regex.test(addressUpper)) {
-      return state;
+      state = st;
+      break;
     }
   }
-  
-  return 'GA'; // Default
+
+  // Extract city (between last comma and state)
+  let city = '';
+  const cityMatch = address.match(/,\s*([^,]+?)\s*,?\s*[A-Z]{2}\s*\d{5}/i);
+  if (cityMatch) {
+    city = cityMatch[1].trim();
+  } else {
+    // Fallback: try to get city from comma-separated parts
+    const parts = address.split(',').map(p => p.trim());
+    if (parts.length >= 2) {
+      const potentialCity = parts[parts.length - 2] || parts[parts.length - 1];
+      city = potentialCity.replace(/\s*[A-Z]{2}\s*\d{5}.*$/i, '').trim();
+    }
+  }
+
+  // Get address line 1 (everything before city/state/zip)
+  let addressLine1 = address
+    .replace(/\b\d{5}(?:-\d{4})?\b/, '')
+    .replace(new RegExp(`\\b${state}\\b`, 'i'), '')
+    .replace(new RegExp(`\\b${city}\\b`, 'i'), '')
+    .replace(/,\s*,/g, ',')
+    .replace(/,\s*$/g, '')
+    .replace(/^\s*,/g, '')
+    .trim();
+
+  // Clean up address line
+  addressLine1 = addressLine1.replace(/,\s*$/, '').trim();
+
+  return { 
+    addressLine1: addressLine1 || address, 
+    addressLine2: '', 
+    city: city || '', 
+    state: state || 'GA', 
+    zipCode 
+  };
 }
 
-// Helper to validate FEIN format (XX-XXXXXXX) - optional field
-function validateFEIN(fein: string | null | undefined): { valid: boolean; error?: string } {
-  // FEIN is optional, so if empty, it's valid
-  if (!fein || !fein.trim()) {
-    return { valid: true };
+// Helper to parse name into firstName and lastName
+function parseName(fullName: string | null | undefined): { firstName: string; lastName: string } {
+  if (!fullName) {
+    return { firstName: '', lastName: '' };
   }
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: '' };
+  }
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
 
-  // Remove any spaces
-  const cleaned = fein.trim().replace(/\s+/g, '');
-  
-  // Check format: XX-XXXXXXX (2 digits, hyphen, 7 digits)
-  const feinPattern = /^\d{2}-\d{7}$/;
-  
-  if (!feinPattern.test(cleaned)) {
-    return { 
-      valid: false, 
-      error: 'FEIN must be in format XX-XXXXXXX (e.g., 58-3247891)' 
+// Helper to parse phone number into parts
+function parsePhone(phone: string | null | undefined): { area: string; prefix: string; suffix: string } {
+  if (!phone) return { area: '', prefix: '', suffix: '' };
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return {
+      area: digits.substring(0, 3),
+      prefix: digits.substring(3, 6),
+      suffix: digits.substring(6, 10),
     };
   }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return {
+      area: digits.substring(1, 4),
+      prefix: digits.substring(4, 7),
+      suffix: digits.substring(7, 11),
+    };
+  }
+  return { area: '', prefix: '', suffix: '' };
+}
 
+// Helper to map ownership type to legal entity code
+function mapLegalEntity(ownershipType: string | null | undefined): string {
+  if (!ownershipType) return 'L'; // Default to LLC
+  const type = ownershipType.toLowerCase();
+  if (type.includes('llc') || type.includes('limited liability')) return 'L';
+  if (type.includes('corp') || type.includes('inc')) return 'C';
+  if (type.includes('partner')) return 'P';
+  if (type.includes('individual') || type.includes('sole') || type.includes('proprietor')) return 'I';
+  return 'L'; // Default
+}
+
+// Helper to format date as MM/DD/YYYY
+function formatDate(date: string | null | undefined): string {
+  if (!date) return '';
+  try {
+    // Try to parse and format
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return date;
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${month}/${day}/${year}`;
+  } catch {
+    return date;
+  }
+}
+
+// Helper to validate FEIN format
+function validateFEIN(fein: string | null | undefined): { valid: boolean; error?: string } {
+  if (!fein || !fein.trim()) return { valid: true };
+  const cleaned = fein.trim().replace(/\s+/g, '');
+  const feinPattern = /^\d{2}-\d{7}$/;
+  if (!feinPattern.test(cleaned)) {
+    return { valid: false, error: 'FEIN must be in format XX-XXXXXXX' };
+  }
   return { valid: true };
 }
 
-// Helper to format FEIN (add hyphen if missing, ensure correct format)
+// Helper to format FEIN
 function formatFEIN(fein: string | null | undefined): string {
   if (!fein) return '';
-  
-  // Remove all non-digit characters
   const digits = fein.replace(/\D/g, '');
-  
-  // Must be exactly 9 digits
-  if (digits.length !== 9) {
-    return fein; // Return original if invalid length
-  }
-  
-  // Format as XX-XXXXXXX
+  if (digits.length !== 9) return fein;
   return `${digits.substring(0, 2)}-${digits.substring(2)}`;
+}
+
+// Normalize insured info
+function normalizeInsuredInfo(data: any, businessName: string) {
+  if (!data) {
+    return {
+      corporationName: businessName,
+      contactName: '',
+      contactNumber: '',
+      contactEmail: '',
+      address: '',
+      operationDescription: '',
+      fein: '',
+      dba: '',
+      ownershipType: '',
+      yearsExpInBusiness: null,
+      yearsAtLocation: null,
+      constructionType: '',
+      totalSqFootage: null,
+      yearBuilt: null,
+      proposedEffectiveDate: '',
+      noOfMPOs: null,
+      generalLiability: {},
+      propertyCoverage: {},
+    };
+  }
+  return {
+    corporationName: data.corporationName || data.corporation_name || businessName,
+    contactName: data.contactName || data.contact_name || '',
+    contactNumber: data.contactNumber || data.contact_number || '',
+    contactEmail: data.contactEmail || data.contact_email || '',
+    address: data.address || '',
+    operationDescription: data.operationDescription || data.operation_description || '',
+    fein: data.fein || data.fein_id || data.federal_employer_id || '',
+    dba: data.dba || '',
+    ownershipType: data.ownershipType || data.ownership_type || '',
+    yearsExpInBusiness: data.yearsExpInBusiness || data.years_exp_in_business || null,
+    yearsAtLocation: data.yearsAtLocation || data.years_at_location || null,
+    constructionType: data.constructionType || data.construction_type || '',
+    totalSqFootage: data.totalSqFootage || data.total_sq_footage || null,
+    yearBuilt: data.yearBuilt || data.year_built || null,
+    proposedEffectiveDate: data.proposedEffectiveDate || data.proposed_effective_date || '',
+    noOfMPOs: data.noOfMPOs || data.no_of_mpos || null,
+    generalLiability: data.generalLiability || data.general_liability || {},
+    propertyCoverage: data.propertyCoverage || data.property_coverage || {},
+  };
+}
+
+// Build Encova payload
+function buildEncovaPayload(normalized: any, submissionId: string) {
+  const { firstName, lastName } = parseName(normalized.contactName);
+  const address = parseAddress(normalized.address);
+  const formattedFEIN = normalized.fein ? formatFEIN(normalized.fein) : '';
+  
+  const gasolineSalesYearly = (normalized.generalLiability as any)?.gasolineSalesYearly || 
+                              (normalized.generalLiability as any)?.gasoline_sales_yearly || null;
+  const insideSalesYearly = (normalized.generalLiability as any)?.insideSalesYearly || 
+                            (normalized.generalLiability as any)?.inside_sales_yearly || null;
+  const bi = (normalized.propertyCoverage as any)?.bi || null;
+  const bpp = (normalized.propertyCoverage as any)?.bpp || null;
+
+  return {
+    action: 'start_automation',
+    task_id: `encova_${submissionId}_${Date.now()}`,
+    data: {
+      form_data: {
+        firstName: firstName || 'N/A',
+        lastName: lastName || 'N/A',
+        companyName: normalized.corporationName,
+        fein: formattedFEIN,
+        description: normalized.operationDescription || 'Business operations',
+        addressLine1: address.addressLine1,
+        zipCode: address.zipCode,
+        phone: normalized.contactNumber || '',
+        email: normalized.contactEmail || '',
+      },
+      dropdowns: {
+        state: address.state,
+        addressType: 'Business',
+        contactMethod: 'Email',
+        producer: 'Shahnaz Sutar',
+      },
+      save_form: true,
+      run_quote_automation: true,
+      quote_data: {
+        dba: normalized.dba || '',
+        org_type: normalized.ownershipType || '',
+        years_at_location: normalized.yearsAtLocation ? String(normalized.yearsAtLocation) : '',
+        no_of_gallons_annual: gasolineSalesYearly ? String(gasolineSalesYearly) : '',
+        inside_sales: insideSalesYearly ? String(insideSalesYearly) : '',
+        construction_type: normalized.constructionType || '',
+        no_of_stories: (normalized as any).noOfStories ? String((normalized as any).noOfStories) : '',
+        square_footage: normalized.totalSqFootage ? String(normalized.totalSqFootage) : '',
+        year_built: normalized.yearBuilt ? String(normalized.yearBuilt) : '',
+        limit_business_income: bi ? String(bi) : '',
+        limit_personal_property: bpp ? String(bpp) : '',
+        building_description: normalized.operationDescription || '',
+      },
+    },
+  };
+}
+
+// Build Guard payload
+function buildGuardPayload(normalized: any, submissionId: string) {
+  const address = parseAddress(normalized.address);
+  const phone = parsePhone(normalized.contactNumber);
+  const yearsInBusiness = normalized.yearsExpInBusiness || normalized.yearsAtLocation || 0;
+  
+  const gasolineSalesYearly = (normalized.generalLiability as any)?.gasolineSalesYearly || 
+                              (normalized.generalLiability as any)?.gasoline_sales_yearly || 0;
+  const insideSalesYearly = (normalized.generalLiability as any)?.insideSalesYearly || 
+                            (normalized.generalLiability as any)?.inside_sales_yearly || 0;
+  const combinedSales = gasolineSalesYearly + insideSalesYearly;
+
+  return {
+    action: 'start_automation',
+    task_id: `guard_${submissionId}_${Date.now()}`,
+    create_account: true,
+    account_data: {
+      legal_entity: mapLegalEntity(normalized.ownershipType),
+      applicant_name: normalized.corporationName,
+      dba: normalized.dba || '',
+      address1: address.addressLine1,
+      address2: address.addressLine2,
+      zipcode: address.zipCode,
+      city: address.city,
+      state: address.state,
+      contact_name: normalized.contactName || '',
+      contact_phone: {
+        area: phone.area,
+        prefix: phone.prefix,
+        suffix: phone.suffix,
+      },
+      email: normalized.contactEmail || '',
+      website: '',
+      years_in_business: String(yearsInBusiness),
+      description: normalized.operationDescription || '',
+      producer_id: '2774846',
+      csr_id: '16977940',
+      policy_inception: formatDate(normalized.proposedEffectiveDate) || formatDate(new Date().toISOString()),
+      headquarters_state: address.state,
+      industry_id: '11',
+      sub_industry_id: '45',
+      business_type_id: '127',
+      lines_of_business: ['CB'],
+      ownership_type: normalized.ownershipType?.toLowerCase().includes('owner') ? 'owner' : 'tenant',
+    },
+    quote_data: {
+      combined_sales: String(combinedSales),
+      gas_gallons: String(gasolineSalesYearly),
+      year_built: normalized.yearBuilt ? String(normalized.yearBuilt) : '',
+      square_footage: normalized.totalSqFootage ? String(normalized.totalSqFootage) : '',
+      mpds: normalized.noOfMPOs ? String(normalized.noOfMPOs) : '0',
+    },
+  };
+}
+
+// Send to carrier webhook
+async function sendToCarrier(carrier: CarrierType, payload: any): Promise<{
+  carrier: CarrierType;
+  success: boolean;
+  data?: any;
+  error?: string;
+}> {
+  const webhookUrl = carrier === 'encova' ? ENCOVA_WEBHOOK_URL : GUARD_WEBHOOK_URL;
+  
+  try {
+    console.log(`[AUTO-SUBMIT] Sending to ${carrier}:`, JSON.stringify(payload, null, 2));
+    
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error(`[AUTO-SUBMIT] ${carrier} error:`, result);
+      return {
+        carrier,
+        success: false,
+        error: result.message || result.error || `HTTP ${response.status}`,
+      };
+    }
+
+    console.log(`[AUTO-SUBMIT] ${carrier} success:`, result);
+    return {
+      carrier,
+      success: true,
+      data: result,
+    };
+  } catch (error: any) {
+    console.error(`[AUTO-SUBMIT] ${carrier} exception:`, error);
+    return {
+      carrier,
+      success: false,
+      error: error.message || 'Network error',
+    };
+  }
 }
 
 export async function POST(
@@ -107,254 +364,169 @@ export async function POST(
 ) {
   try {
     const submissionId = params.id;
+    const body = await request.json().catch(() => ({}));
+    const carriers: CarrierType[] = body.carriers || ['encova', 'guard'];
     
-    // Fetch submission with insured info
+    console.log(`[AUTO-SUBMIT] Request for submission ${submissionId}, carriers: ${carriers.join(', ')}`);
+
+    // Fetch submission
     const submission = await getSubmission(submissionId);
-    
     if (!submission) {
-      return NextResponse.json(
-        { error: 'Submission not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
     }
 
-    // Get insured info from snapshot or fetch it
+    // Get insured info
     let insuredInfo = submission.insuredInfoSnapshot;
-    
-    console.log('[AUTO-SUBMIT] Submission:', {
-      id: submission.id,
-      businessName: submission.businessName,
-      hasInsuredInfoSnapshot: !!submission.insuredInfoSnapshot,
-      insuredInfoId: submission.insuredInfoId,
-    });
-    
-    // If no snapshot but has ID, fetch it from database
     if (!insuredInfo && submission.insuredInfoId) {
-      console.log('[AUTO-SUBMIT] Fetching insured info from database...');
       insuredInfo = await getInsuredInformation(submission.insuredInfoId);
-      console.log('[AUTO-SUBMIT] Fetched insured info:', {
-        hasData: !!insuredInfo,
-        corporationName: insuredInfo?.corporationName || insuredInfo?.corporation_name,
-        address: insuredInfo?.address,
-      });
     }
 
-    // Normalize insured info (handle both camelCase and snake_case)
-    const normalize = (data: any) => {
-      if (!data) {
-        console.log('[AUTO-SUBMIT] No insured info data, using submission business name');
-        return {
-          corporationName: submission.businessName,
-          contactName: '',
-          contactNumber: '',
-          contactEmail: '',
-          address: '',
-          operationDescription: '',
-          fein: '',
-          dba: '',
-          ownershipType: '',
-          yearsAtLocation: null,
-          constructionType: '',
-          totalSqFootage: null,
-          yearBuilt: null,
-          generalLiability: {},
-          propertyCoverage: {},
-        };
-      }
-      const normalized = {
-        corporationName: data.corporationName || data.corporation_name || submission.businessName,
-        contactName: data.contactName || data.contact_name || '',
-        contactNumber: data.contactNumber || data.contact_number || '',
-        contactEmail: data.contactEmail || data.contact_email || '',
-        address: data.address || '',
-        operationDescription: data.operationDescription || data.operation_description || '',
-        fein: data.fein || data.fein_id || data.federal_employer_id || '',
-        dba: data.dba || '',
-        ownershipType: data.ownershipType || data.ownership_type || '',
-        yearsAtLocation: data.yearsAtLocation || data.years_at_location || null,
-        constructionType: data.constructionType || data.construction_type || '',
-        totalSqFootage: data.totalSqFootage || data.total_sq_footage || null,
-        yearBuilt: data.yearBuilt || data.year_built || null,
-        generalLiability: data.generalLiability || data.general_liability || {},
-        propertyCoverage: data.propertyCoverage || data.property_coverage || {},
-        noOfStories: (data as any).noOfStories || (data as any).no_of_stories || null,
-      };
-      console.log('[AUTO-SUBMIT] Normalized data:', normalized);
-      return normalized;
-    };
+    const normalized = normalizeInsuredInfo(insuredInfo, submission.businessName);
 
-    const normalized = normalize(insuredInfo);
-    
-    // Validate required fields
-    if (!normalized?.corporationName) {
-      console.error('[AUTO-SUBMIT] Validation failed: Corporation name missing');
+    // Validation
+    if (!normalized.corporationName) {
       return NextResponse.json(
-        { error: 'Corporation name is required. Please ensure insured information is complete.' },
+        { error: 'Corporation name is required.' },
         { status: 400 }
       );
     }
-
-    // Validate FEIN format (optional - only validate if provided)
-    const feinValidation = validateFEIN(normalized.fein);
-    if (!feinValidation.valid) {
-      console.error('[AUTO-SUBMIT] Validation failed: FEIN invalid', feinValidation.error);
-      return NextResponse.json(
-        { 
-          error: feinValidation.error || 'FEIN format is invalid',
-          details: 'FEIN must be in format XX-XXXXXXX (e.g., 58-3247891)',
-          field: 'fein'
-        },
-        { status: 400 }
-      );
-    }
-
-    // Format FEIN to ensure correct format (if provided)
-    const formattedFEIN = normalized.fein ? formatFEIN(normalized.fein) : '';
 
     if (!normalized.address) {
-      console.error('[AUTO-SUBMIT] Validation failed: Address missing');
       return NextResponse.json(
-        { error: 'Address is required. Please ensure insured information includes an address.' },
+        { error: 'Address is required.' },
         { status: 400 }
       );
     }
 
-    // Parse address
-    const { addressLine1, zipCode } = parseAddress(normalized.address);
-    console.log('[AUTO-SUBMIT] Parsed address:', { addressLine1, zipCode, original: normalized.address });
-    
-    // Validate zip code is present
-    if (!zipCode) {
-      console.error('[AUTO-SUBMIT] Validation failed: Zip code not found in address');
+    const address = parseAddress(normalized.address);
+    if (!address.zipCode) {
       return NextResponse.json(
         { 
           error: 'Zip code is required in address',
-          details: `The address "${normalized.address}" does not contain a valid zip code. Please update the address to include a zip code (e.g., 12345 or 12345-6789) before submitting.`,
-          field: 'address'
+          details: `Please update the address to include a zip code.`,
         },
         { status: 400 }
       );
     }
 
-    // Parse contact name
-    const { firstName, lastName } = parseName(normalized.contactName);
-    
-    // Extract state
-    const state = extractState(normalized.address);
-
-    // Prepare webhook payload with new format including quote automation
-    const taskId = `submission_${submissionId}_${Date.now()}`;
-    
-    // Extract quote data fields
-    const gasolineSalesYearly = (normalized.generalLiability as any)?.gasolineSalesYearly || 
-                                (normalized.generalLiability as any)?.gasoline_sales_yearly || null;
-    const insideSalesYearly = (normalized.generalLiability as any)?.insideSalesYearly || 
-                              (normalized.generalLiability as any)?.inside_sales_yearly || null;
-    const bi = (normalized.propertyCoverage as any)?.bi || null;
-    const bpp = (normalized.propertyCoverage as any)?.bpp || null;
-    
-    const payload = {
-      action: 'start_automation',
-      task_id: taskId,
-      data: {
-        form_data: {
-          firstName: firstName || 'N/A',
-          lastName: lastName || 'N/A',
-          companyName: normalized.corporationName,
-          fein: formattedFEIN, // Use formatted FEIN
-          description: normalized.operationDescription || 'Business operations',
-          addressLine1: addressLine1,
-          zipCode: zipCode,
-          phone: normalized.contactNumber || '',
-          email: normalized.contactEmail || '',
-        },
-        dropdowns: {
-          state: state,
-          addressType: 'Business',
-          contactMethod: 'Email',
-          producer: 'Shahnaz Sutar', // Default producer
-        },
-        save_form: true,
-        run_quote_automation: true, // Enable quote automation
-        quote_data: {
-          // Map our insured info fields to RPA quote_data format
-          dba: normalized.dba || '',
-          org_type: normalized.ownershipType || '',
-          years_at_location: normalized.yearsAtLocation ? String(normalized.yearsAtLocation) : '',
-          no_of_gallons_annual: gasolineSalesYearly ? String(gasolineSalesYearly) : '',
-          inside_sales: insideSalesYearly ? String(insideSalesYearly) : '',
-          construction_type: normalized.constructionType || '',
-          no_of_stories: (normalized as any).noOfStories ? String((normalized as any).noOfStories) : '',
-          square_footage: normalized.totalSqFootage ? String(normalized.totalSqFootage) : '',
-          year_built: normalized.yearBuilt ? String(normalized.yearBuilt) : '',
-          limit_business_income: bi ? String(bi) : '',
-          limit_personal_property: bpp ? String(bpp) : '',
-          building_description: normalized.operationDescription || '',
-        },
-      },
-    };
-
-    console.log('[AUTO-SUBMIT] Payload prepared:', {
-      taskId,
-      hasQuoteData: !!payload.data.quote_data,
-      quoteDataFields: Object.keys(payload.data.quote_data),
-    });
-
-    // Send to RPA webhook
-    const webhookUrl = process.env.RPA_WEBHOOK_URL || 'https://encova-submission-bot-rpa-production.up.railway.app/webhook';
-    
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('RPA webhook error:', errorText);
+    // Validate FEIN if provided
+    const feinValidation = validateFEIN(normalized.fein);
+    if (!feinValidation.valid) {
       return NextResponse.json(
-        { error: `Failed to submit to RPA: ${response.status} ${errorText}` },
-        { status: response.status }
+        { error: feinValidation.error, field: 'fein' },
+        { status: 400 }
       );
     }
 
-    const result = await response.json();
-
-    // Build response with new RPA response format
-    const responseData: any = {
-      success: true,
-      message: result.message || 'Submission sent to RPA successfully',
-      taskId: taskId,
-      status: result.status || 'accepted',
-    };
-
-    // Include account creation info if available
-    if (result.account_created) {
-      responseData.accountCreated = true;
-      responseData.accountNumber = result.account_number;
-      responseData.quoteUrl = result.quote_url;
+    // Guard-specific validation
+    if (carriers.includes('guard')) {
+      if (!normalized.contactName) {
+        return NextResponse.json(
+          { error: 'Contact name is required for Guard submission.' },
+          { status: 400 }
+        );
+      }
+      if (!normalized.contactNumber) {
+        return NextResponse.json(
+          { error: 'Contact phone is required for Guard submission.' },
+          { status: 400 }
+        );
+      }
+      const yearsInBusiness = normalized.yearsExpInBusiness || normalized.yearsAtLocation;
+      if (!yearsInBusiness) {
+        return NextResponse.json(
+          { error: 'Years in business is required for Guard submission.' },
+          { status: 400 }
+        );
+      }
+      if (!normalized.operationDescription) {
+        return NextResponse.json(
+          { error: 'Description of operations is required for Guard submission.' },
+          { status: 400 }
+        );
+      }
+      if (!normalized.proposedEffectiveDate) {
+        return NextResponse.json(
+          { error: 'Policy inception date is required for Guard submission.' },
+          { status: 400 }
+        );
+      }
+      if (!address.city) {
+        return NextResponse.json(
+          { error: 'City is required in address for Guard submission.' },
+          { status: 400 }
+        );
+      }
     }
 
-    // Include quote automation info if available
-    if (result.quote_automation) {
-      responseData.quoteAutomation = {
-        success: result.quote_automation.success,
-        message: result.quote_automation.message,
+    // Build payloads and send in parallel
+    const promises: Promise<any>[] = [];
+    
+    if (carriers.includes('encova')) {
+      const encovaPayload = buildEncovaPayload(normalized, submissionId);
+      promises.push(sendToCarrier('encova', encovaPayload));
+    }
+    
+    if (carriers.includes('guard')) {
+      const guardPayload = buildGuardPayload(normalized, submissionId);
+      promises.push(sendToCarrier('guard', guardPayload));
+    }
+
+    // Wait for all requests to complete
+    const results = await Promise.all(promises);
+
+    // Build response
+    const response: any = {
+      success: results.every(r => r.success),
+      results: {},
+    };
+
+    for (const result of results) {
+      response.results[result.carrier] = {
+        success: result.success,
+        message: result.success 
+          ? (result.data?.message || 'Submitted successfully')
+          : (result.error || 'Submission failed'),
+        taskId: result.data?.task_id,
+        status: result.data?.status,
+        ...(result.data?.account_created && {
+          accountCreated: true,
+          accountNumber: result.data.account_number,
+          quoteUrl: result.data.quote_url,
+        }),
+        ...(result.data?.policy_code && {
+          policyCode: result.data.policy_code,
+        }),
+        ...(result.data?.quotation_url && {
+          quotationUrl: result.data.quotation_url,
+        }),
       };
     }
 
-    console.log('[AUTO-SUBMIT] RPA Response:', responseData);
+    // Set overall message
+    const successCount = results.filter(r => r.success).length;
+    const totalCount = results.length;
+    
+    if (successCount === totalCount) {
+      response.message = `Successfully submitted to ${totalCount} carrier${totalCount > 1 ? 's' : ''}`;
+    } else if (successCount > 0) {
+      response.message = `Partial success: ${successCount}/${totalCount} carriers`;
+      response.success = false; // Mark as partial failure
+    } else {
+      response.message = 'All submissions failed';
+    }
 
-    return NextResponse.json(responseData);
+    console.log('[AUTO-SUBMIT] Final response:', JSON.stringify(response, null, 2));
+
+    return NextResponse.json(response, { 
+      status: response.success ? 200 : (successCount > 0 ? 207 : 500) 
+    });
 
   } catch (error: any) {
-    console.error('Auto-submit error:', error);
+    console.error('[AUTO-SUBMIT] Error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to auto-submit submission' },
       { status: 500 }
     );
   }
 }
-

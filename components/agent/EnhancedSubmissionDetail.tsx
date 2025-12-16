@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Submission, BusinessType, Carrier, CarrierQuote, InsuredInformation } from '@/lib/types';
 import InsuredInfoSection from './InsuredInfoSection';
-import AutoSubmitModal from './AutoSubmitModal';
+import AutoSubmitModal, { CarrierType } from './AutoSubmitModal';
 import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send, Rocket } from 'lucide-react';
 
 interface CarrierAppetiteDetail {
@@ -209,35 +209,65 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   }
 
   const [showAutoSubmitModal, setShowAutoSubmitModal] = useState(false);
+  const [carrierResults, setCarrierResults] = useState<{ [key: string]: any } | null>(null);
 
-  async function handleAutoSubmit() {
+  async function handleAutoSubmit(selectedCarriers: CarrierType[]) {
     setSubmitting(true);
     setSubmitStatus(null);
+    setCarrierResults(null);
     
     try {
       const res = await fetch(`/api/submissions/${submission.id}/auto-submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ carriers: selectedCarriers }),
       });
 
       const result = await res.json();
 
-      if (res.ok) {
+      // Store carrier-specific results
+      if (result.results) {
+        setCarrierResults(result.results);
+      }
+
+      if (res.ok || res.status === 207) {
+        // Build detailed message showing each carrier's status
+        let message = result.message || 'Submission completed';
+        
+        if (result.results) {
+          const details: string[] = [];
+          for (const [carrier, data] of Object.entries(result.results) as [string, any][]) {
+            if (data.success) {
+              let detail = `✅ ${carrier.toUpperCase()}: ${data.message}`;
+              if (data.accountNumber) detail += ` (Account: ${data.accountNumber})`;
+              if (data.policyCode) detail += ` (Policy: ${data.policyCode})`;
+              details.push(detail);
+            } else {
+              details.push(`❌ ${carrier.toUpperCase()}: ${data.message}`);
+            }
+          }
+          message = details.join('\n');
+        }
+
+        const allSuccess = result.success;
         setSubmitStatus({
-          success: true,
-          message: result.message || 'Submission sent to RPA successfully',
+          success: allSuccess,
+          message: message,
         });
-        setShowAutoSubmitModal(false); // Close modal on success
-        // Clear status after 5 seconds
-        setTimeout(() => setSubmitStatus(null), 5000);
+        
+        if (allSuccess) {
+          setShowAutoSubmitModal(false); // Only close on full success
+          setTimeout(() => setSubmitStatus(null), 10000);
+        } else {
+          // Partial failure - keep modal open but show status
+          setTimeout(() => setSubmitStatus(null), 15000);
+        }
       } else {
-        // Show detailed error message if available
         const errorMessage = result.details || result.error || 'Failed to submit to RPA';
         setSubmitStatus({
           success: false,
           message: errorMessage,
         });
-        // Keep error visible longer (10 seconds) so user can read it
         setTimeout(() => setSubmitStatus(null), 10000);
       }
     } catch (error: any) {
@@ -306,33 +336,38 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         <div className={`card p-4 mb-4 ${
           submitStatus.success 
             ? 'bg-green-50 border border-green-200' 
-            : 'bg-red-50 border border-red-200'
+            : 'bg-amber-50 border border-amber-200'
         }`}>
           <div className="flex items-start gap-2">
-            <span className={`text-lg ${submitStatus.success ? 'text-green-600' : 'text-red-600'}`}>
-              {submitStatus.success ? '✓' : '✗'}
+            <span className={`text-lg ${submitStatus.success ? 'text-green-600' : 'text-amber-600'}`}>
+              {submitStatus.success ? '✓' : '⚠'}
             </span>
             <div className="flex-1">
               <p className={`text-sm font-medium ${
-                submitStatus.success ? 'text-green-800' : 'text-red-800'
+                submitStatus.success ? 'text-green-800' : 'text-amber-800'
               }`}>
-                {submitStatus.success ? 'Success' : 'Validation Error'}
+                {submitStatus.success ? 'Submission Complete' : 'Submission Status'}
               </p>
-              <p className={`text-sm mt-1 ${
-                submitStatus.success ? 'text-green-700' : 'text-red-700'
+              <div className={`text-sm mt-2 space-y-1 ${
+                submitStatus.success ? 'text-green-700' : 'text-amber-700'
               }`}>
-                {submitStatus.message}
-              </p>
+                {submitStatus.message?.split('\n').map((line, idx) => (
+                  <p key={idx} className={
+                    line.startsWith('✅') ? 'text-green-700' : 
+                    line.startsWith('❌') ? 'text-red-700' : ''
+                  }>
+                    {line}
+                  </p>
+                ))}
+              </div>
             </div>
-            {!submitStatus.success && (
-              <button
-                onClick={() => setSubmitStatus(null)}
-                className="text-red-600 hover:text-red-800 text-lg font-bold"
-                aria-label="Close error"
-              >
-                ×
-              </button>
-            )}
+            <button
+              onClick={() => setSubmitStatus(null)}
+              className={`${submitStatus.success ? 'text-green-600 hover:text-green-800' : 'text-amber-600 hover:text-amber-800'} text-lg font-bold`}
+              aria-label="Close"
+            >
+              ×
+            </button>
           </div>
         </div>
       )}

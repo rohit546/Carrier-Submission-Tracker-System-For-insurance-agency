@@ -2,25 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { InsuredInformation } from '@/lib/types';
-import { X, CheckCircle, AlertCircle, Rocket } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Rocket, Building2, Shield } from 'lucide-react';
+
+// Carrier types
+export type CarrierType = 'encova' | 'guard';
 
 interface AutoSubmitModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: (selectedCarriers: CarrierType[]) => Promise<void>;
   insuredInfo: InsuredInformation | null;
   submitting?: boolean;
 }
-
-// Construction type options - user can provide these
-const CONSTRUCTION_TYPES = [
-  'Frame',
-  'Masonry',
-  'Fire Resistive',
-  'Non-Combustible',
-  'Heavy Timber',
-  'Other',
-];
 
 // Helper to parse name into firstName and lastName
 function parseName(fullName: string | null | undefined): { firstName: string; lastName: string } {
@@ -43,53 +36,95 @@ function extractZipCode(address: string | null | undefined): string {
   return zipMatch ? zipMatch[1] : '';
 }
 
+// Helper to extract city from address
+function extractCity(address: string | null | undefined): string {
+  if (!address) return '';
+  // Try to find city before state abbreviation
+  const match = address.match(/,\s*([^,]+?)\s*,?\s*[A-Z]{2}\s*\d{5}/i);
+  if (match) return match[1].trim();
+  // Fallback: split by commas and get second-to-last part
+  const parts = address.split(',').map(p => p.trim());
+  if (parts.length >= 2) {
+    // Remove state and zip from the potential city
+    const potentialCity = parts[parts.length - 2] || parts[parts.length - 1];
+    return potentialCity.replace(/\s*[A-Z]{2}\s*\d{5}.*$/i, '').trim();
+  }
+  return '';
+}
+
+// Helper to extract state from address
+function extractState(address: string | null | undefined): string {
+  if (!address) return '';
+  const stateAbbreviations = [
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
+  ];
+  const addressUpper = address.toUpperCase();
+  for (const state of stateAbbreviations) {
+    const regex = new RegExp(`\\b${state}\\b`);
+    if (regex.test(addressUpper)) {
+      return state;
+    }
+  }
+  return '';
+}
+
 // Helper to validate FEIN format (XX-XXXXXXX) - optional field
 function validateFEIN(fein: string | null | undefined): { valid: boolean; error?: string } {
-  // FEIN is optional, so if empty, it's valid
   if (!fein || !fein.trim()) {
     return { valid: true };
   }
-
-  // Remove any spaces
   const cleaned = fein.trim().replace(/\s+/g, '');
-  
-  // Check format: XX-XXXXXXX (2 digits, hyphen, 7 digits)
   const feinPattern = /^\d{2}-\d{7}$/;
-  
   if (!feinPattern.test(cleaned)) {
     return { 
       valid: false, 
       error: 'FEIN must be in format XX-XXXXXXX (e.g., 58-3247891)' 
     };
   }
-
   return { valid: true };
 }
 
-// Helper to format FEIN (add hyphen if missing, ensure correct format)
+// Helper to format FEIN
 function formatFEIN(fein: string | null | undefined): string {
   if (!fein) return '';
-  
-  // Remove all non-digit characters
   const digits = fein.replace(/\D/g, '');
-  
-  // Must be exactly 9 digits
   if (digits.length !== 9) {
-    return fein; // Return original if invalid length
+    return fein;
   }
-  
-  // Format as XX-XXXXXXX
   return `${digits.substring(0, 2)}-${digits.substring(2)}`;
+}
+
+// Helper to parse phone number into parts
+function parsePhone(phone: string | null | undefined): { area: string; prefix: string; suffix: string } {
+  if (!phone) return { area: '', prefix: '', suffix: '' };
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return {
+      area: digits.substring(0, 3),
+      prefix: digits.substring(3, 6),
+      suffix: digits.substring(6, 10),
+    };
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return {
+      area: digits.substring(1, 4),
+      prefix: digits.substring(4, 7),
+      suffix: digits.substring(7, 11),
+    };
+  }
+  return { area: '', prefix: '', suffix: '' };
 }
 
 // Helper to normalize insured info (handle both camelCase and snake_case)
 function normalizeInsuredInfo(data: any): InsuredInformation | null {
   if (!data) return null;
   
-  // If already normalized (has camelCase), return as is
   if (data.corporationName) return data;
   
-  // Convert snake_case to camelCase
   return {
     id: data.id,
     uniqueIdentifier: data.unique_identifier || data.uniqueIdentifier,
@@ -137,10 +172,11 @@ export default function AutoSubmitModal({
   insuredInfo,
   submitting = false,
 }: AutoSubmitModalProps) {
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [selectedCarriers, setSelectedCarriers] = useState<CarrierType[]>(['encova', 'guard']);
+  const [encovaErrors, setEncovaErrors] = useState<string[]>([]);
+  const [guardErrors, setGuardErrors] = useState<string[]>([]);
   const [completeness, setCompleteness] = useState(0);
 
-  // Normalize the insured info to handle both formats
   const normalizedInfo = normalizeInsuredInfo(insuredInfo);
 
   useEffect(() => {
@@ -151,76 +187,133 @@ export default function AutoSubmitModal({
 
   function validateAndCalculateCompleteness() {
     if (!normalizedInfo) {
-      setValidationErrors(['Insured information is not available']);
+      setEncovaErrors(['Insured information is not available']);
+      setGuardErrors(['Insured information is not available']);
       setCompleteness(0);
       return;
     }
 
-    const errors: string[] = [];
+    const eErrors: string[] = [];
+    const gErrors: string[] = [];
     let completeFields = 0;
     let totalFields = 0;
 
-    // Required fields
-    totalFields += 5;
+    // === SHARED REQUIRED FIELDS ===
+    totalFields += 4;
+    
+    // Corporation Name - required for both
     if (!normalizedInfo.corporationName?.trim()) {
-      errors.push('Corporation name is required');
+      eErrors.push('Corporation name is required');
+      gErrors.push('Applicant name is required');
     } else {
       completeFields++;
     }
 
+    // Contact Name - required for both
     const { firstName, lastName } = parseName(normalizedInfo.contactName);
-    if (!firstName?.trim() || !lastName?.trim()) {
-      errors.push('Contact first and last name are required');
+    if (!normalizedInfo.contactName?.trim()) {
+      eErrors.push('Contact name is required');
+      gErrors.push('Contact name is required');
+    } else {
+      if (!firstName?.trim() || !lastName?.trim()) {
+        eErrors.push('Contact first and last name are required');
+      }
+      completeFields++;
+    }
+
+    // Address with Zip - required for both
+    if (!normalizedInfo.address?.trim()) {
+      eErrors.push('Address is required');
+      gErrors.push('Mailing address is required');
+    } else {
+      const zipCode = extractZipCode(normalizedInfo.address);
+      const city = extractCity(normalizedInfo.address);
+      const state = extractState(normalizedInfo.address);
+      
+      if (!zipCode) {
+        eErrors.push('Address must include a valid zip code');
+        gErrors.push('Zip code is required');
+      }
+      if (!city) {
+        gErrors.push('City is required in address');
+      }
+      if (!state) {
+        gErrors.push('State is required in address');
+      }
+      if (zipCode) completeFields++;
+    }
+
+    // Phone - required for both
+    if (!normalizedInfo.contactNumber?.trim()) {
+      eErrors.push('Office phone is required');
+      gErrors.push('Contact phone is required');
+    } else {
+      const phone = parsePhone(normalizedInfo.contactNumber);
+      if (!phone.area || !phone.prefix || !phone.suffix) {
+        gErrors.push('Phone must be a valid 10-digit number');
+      }
+      completeFields++;
+    }
+
+    // === GUARD-SPECIFIC REQUIRED FIELDS ===
+    totalFields += 3;
+
+    // Years in Business - required for Guard
+    const yearsInBusiness = normalizedInfo.yearsExpInBusiness || normalizedInfo.yearsAtLocation;
+    if (!yearsInBusiness) {
+      gErrors.push('Years in business is required');
     } else {
       completeFields++;
     }
 
+    // Description of Operations - required for Guard
+    if (!normalizedInfo.operationDescription?.trim()) {
+      gErrors.push('Description of operations is required');
+    } else {
+      completeFields++;
+    }
+
+    // Policy Inception Date - required for Guard
+    if (!normalizedInfo.proposedEffectiveDate?.trim()) {
+      gErrors.push('Policy inception date is required');
+    } else {
+      completeFields++;
+    }
+
+    // === ENCOVA-SPECIFIC VALIDATION ===
     // FEIN - optional, but validate format if provided
     const fein = normalizedInfo.fein || '';
     const feinValidation = validateFEIN(fein);
     if (!feinValidation.valid) {
-      errors.push(feinValidation.error || 'FEIN format is invalid');
-    } else if (fein.trim()) {
-      // Only count as complete if FEIN is provided
-      completeFields++;
+      eErrors.push(feinValidation.error || 'FEIN format is invalid');
     }
 
-    if (!normalizedInfo.address?.trim()) {
-      errors.push('Address is required');
-    } else {
-      const zipCode = extractZipCode(normalizedInfo.address);
-      if (!zipCode) {
-        errors.push('Address must include a valid zip code');
-      } else {
-        completeFields++;
-      }
-    }
-
-    if (!normalizedInfo.contactNumber?.trim()) {
-      errors.push('Office phone is required');
-    } else {
-      completeFields++;
-    }
-
-    // Optional fields (for completeness calculation)
-    totalFields += 12;
+    // === OPTIONAL FIELDS (for completeness) ===
+    totalFields += 10;
     if (normalizedInfo.contactEmail?.trim()) completeFields++;
     if (normalizedInfo.dba?.trim()) completeFields++;
     if (normalizedInfo.ownershipType?.trim()) completeFields++;
-    if (normalizedInfo.yearsAtLocation) completeFields++;
     if ((normalizedInfo.generalLiability as any)?.gasolineSalesYearly) completeFields++;
     if ((normalizedInfo.generalLiability as any)?.insideSalesYearly) completeFields++;
     if (normalizedInfo.constructionType?.trim()) completeFields++;
-    // No of stories - might not be in schema
-    if ((normalizedInfo as any)?.noOfStories) completeFields++;
     if (normalizedInfo.totalSqFootage) completeFields++;
     if (normalizedInfo.yearBuilt) completeFields++;
     if ((normalizedInfo.propertyCoverage as any)?.bi) completeFields++;
     if ((normalizedInfo.propertyCoverage as any)?.bpp) completeFields++;
 
-    setValidationErrors(errors);
+    setEncovaErrors(eErrors);
+    setGuardErrors(gErrors);
     setCompleteness(Math.round((completeFields / totalFields) * 100));
   }
+
+  const toggleCarrier = (carrier: CarrierType) => {
+    setSelectedCarriers(prev => {
+      if (prev.includes(carrier)) {
+        return prev.filter(c => c !== carrier);
+      }
+      return [...prev, carrier];
+    });
+  };
 
   if (!isOpen) return null;
 
@@ -241,19 +334,25 @@ export default function AutoSubmitModal({
   const feinValidation = validateFEIN(feinRaw);
   const fein = feinRaw ? (feinValidation.valid ? formatFEIN(feinRaw) : feinRaw) : 'N/A';
   const zipCode = extractZipCode(normalizedInfo.address || '');
+  const city = extractCity(normalizedInfo.address || '');
+  const state = extractState(normalizedInfo.address || '');
+  const phone = parsePhone(normalizedInfo.contactNumber);
   const gasolineSales = (normalizedInfo.generalLiability as any)?.gasolineSalesYearly || null;
   const insideSales = (normalizedInfo.generalLiability as any)?.insideSalesYearly || null;
   const bi = (normalizedInfo.propertyCoverage as any)?.bi || null;
   const bpp = (normalizedInfo.propertyCoverage as any)?.bpp || null;
-  const noOfStories = (normalizedInfo as any)?.noOfStories || 'N/A';
+  const yearsInBusiness = normalizedInfo.yearsExpInBusiness || normalizedInfo.yearsAtLocation;
 
-  const isValid = validationErrors.length === 0;
+  // Check if any selected carrier has errors
+  const hasEncovaErrors = selectedCarriers.includes('encova') && encovaErrors.length > 0;
+  const hasGuardErrors = selectedCarriers.includes('guard') && guardErrors.length > 0;
+  const isValid = selectedCarriers.length > 0 && !hasEncovaErrors && !hasGuardErrors;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
             <Rocket className="w-6 h-6 text-blue-600" />
             <h2 className="text-2xl font-bold text-black">Confirm Auto Submit</h2>
@@ -269,20 +368,124 @@ export default function AutoSubmitModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Validation Status */}
-          {validationErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+          {/* Carrier Selection */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-black mb-4 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-600" />
+              Select Carriers to Submit
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Encova Card */}
+              <label 
+                className={`relative flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  selectedCarriers.includes('encova')
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedCarriers.includes('encova')}
+                  onChange={() => toggleCarrier('encova')}
+                  disabled={submitting}
+                  className="mt-1 h-5 w-5 text-blue-600 rounded"
+                />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-red-800 mb-2">Required Fields Missing:</h3>
-                  <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
-                    {validationErrors.map((error, idx) => (
-                      <li key={idx}>{error}</li>
-                    ))}
-                  </ul>
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-blue-600" />
+                    <span className="font-semibold text-black">Encova</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Account creation + Quote automation
+                  </p>
+                  {selectedCarriers.includes('encova') && encovaErrors.length > 0 && (
+                    <div className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {encovaErrors.length} validation error{encovaErrors.length > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  {selectedCarriers.includes('encova') && encovaErrors.length === 0 && (
+                    <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Ready to submit
+                    </div>
+                  )}
                 </div>
-              </div>
+              </label>
+
+              {/* Guard Card */}
+              <label 
+                className={`relative flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  selectedCarriers.includes('guard')
+                    ? 'border-orange-500 bg-orange-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedCarriers.includes('guard')}
+                  onChange={() => toggleCarrier('guard')}
+                  disabled={submitting}
+                  className="mt-1 h-5 w-5 text-orange-600 rounded"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-orange-600" />
+                    <span className="font-semibold text-black">Guard (BH)</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Berkshire Hathaway GUARD
+                  </p>
+                  {selectedCarriers.includes('guard') && guardErrors.length > 0 && (
+                    <div className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {guardErrors.length} validation error{guardErrors.length > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  {selectedCarriers.includes('guard') && guardErrors.length === 0 && (
+                    <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Ready to submit
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* Validation Errors */}
+          {(hasEncovaErrors || hasGuardErrors) && (
+            <div className="space-y-3">
+              {hasEncovaErrors && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <Building2 className="w-5 h-5 text-red-600 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-red-800 mb-2">Encova - Required Fields Missing:</h3>
+                      <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
+                        {encovaErrors.map((error, idx) => (
+                          <li key={idx}>{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {hasGuardErrors && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <Shield className="w-5 h-5 text-orange-600 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-orange-800 mb-2">Guard - Required Fields Missing:</h3>
+                      <ul className="list-disc list-inside space-y-1 text-sm text-orange-700">
+                        {guardErrors.map((error, idx) => (
+                          <li key={idx}>{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -313,24 +516,41 @@ export default function AutoSubmitModal({
               <CheckCircle className="w-5 h-5 text-green-600" />
               Required Information
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label className="text-sm font-medium text-gray-600">Corporation Name</label>
+                <label className="text-sm font-medium text-gray-600">Corporation Name *</label>
                 <p className={`text-black font-medium ${!normalizedInfo.corporationName?.trim() ? 'text-red-600' : ''}`}>
                   {normalizedInfo.corporationName || 'Missing'}
                 </p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Contact First Name</label>
-                <p className={`text-black ${!firstName?.trim() ? 'text-red-600' : ''}`}>
-                  {firstName || 'Missing'}
+                <label className="text-sm font-medium text-gray-600">Contact Name *</label>
+                <p className={`text-black ${!normalizedInfo.contactName?.trim() ? 'text-red-600' : ''}`}>
+                  {normalizedInfo.contactName || 'Missing'}
                 </p>
+                {normalizedInfo.contactName && (
+                  <p className="text-xs text-gray-500">First: {firstName || 'N/A'} | Last: {lastName || 'N/A'}</p>
+                )}
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Contact Last Name</label>
-                <p className={`text-black ${!lastName?.trim() ? 'text-red-600' : ''}`}>
-                  {lastName || 'Missing'}
+                <label className="text-sm font-medium text-gray-600">Office Phone *</label>
+                <p className={`text-black ${!normalizedInfo.contactNumber?.trim() ? 'text-red-600' : ''}`}>
+                  {normalizedInfo.contactNumber || 'Missing'}
                 </p>
+                {phone.area && (
+                  <p className="text-xs text-gray-500">({phone.area}) {phone.prefix}-{phone.suffix}</p>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-600">Address *</label>
+                <p className={`text-black ${!normalizedInfo.address?.trim() ? 'text-red-600' : ''}`}>
+                  {normalizedInfo.address || 'Missing'}
+                </p>
+                <div className="flex flex-wrap gap-4 mt-1 text-xs text-gray-500">
+                  <span className={!city ? 'text-red-500' : ''}>City: {city || 'Missing'}</span>
+                  <span className={!state ? 'text-red-500' : ''}>State: {state || 'Missing'}</span>
+                  <span className={!zipCode ? 'text-red-500' : ''}>Zip: {zipCode || 'Missing'}</span>
+                </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">FEIN ID <span className="text-gray-400 text-xs">(Optional)</span></label>
@@ -338,25 +558,37 @@ export default function AutoSubmitModal({
                   {fein}
                 </p>
                 {!feinValidation.valid && fein !== 'N/A' && (
-                  <p className="text-xs text-red-600 mt-1">
-                    Format: XX-XXXXXXX (e.g., 58-3247891)
+                  <p className="text-xs text-red-600 mt-1">Format: XX-XXXXXXX</p>
+                )}
+              </div>
+            </div>
+
+            {/* Guard-specific required fields */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <h4 className="text-sm font-semibold text-orange-600 mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                Guard-Specific Required Fields
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Years in Business *</label>
+                  <p className={`text-black ${!yearsInBusiness ? 'text-red-600' : ''}`}>
+                    {yearsInBusiness || 'Missing'}
                   </p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Address</label>
-                <p className={`text-black ${!normalizedInfo.address?.trim() ? 'text-red-600' : ''}`}>
-                  {normalizedInfo.address || 'Missing'}
-                </p>
-                {zipCode && (
-                  <p className="text-xs text-gray-500 mt-1">Zip Code: {zipCode}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Office Phone</label>
-                <p className={`text-black ${!normalizedInfo.contactNumber?.trim() ? 'text-red-600' : ''}`}>
-                  {normalizedInfo.contactNumber || 'Missing'}
-                </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Policy Inception *</label>
+                  <p className={`text-black ${!normalizedInfo.proposedEffectiveDate?.trim() ? 'text-red-600' : ''}`}>
+                    {normalizedInfo.proposedEffectiveDate || 'Missing'}
+                  </p>
+                </div>
+                <div className="md:col-span-1">
+                  <label className="text-sm font-medium text-gray-600">Description of Operations *</label>
+                  <p className={`text-black text-sm ${!normalizedInfo.operationDescription?.trim() ? 'text-red-600' : ''}`}>
+                    {normalizedInfo.operationDescription?.substring(0, 100) || 'Missing'}
+                    {(normalizedInfo.operationDescription?.length || 0) > 100 && '...'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -364,7 +596,7 @@ export default function AutoSubmitModal({
           {/* Optional Information */}
           <div>
             <h3 className="text-lg font-semibold text-black mb-4">Optional Information (For Complete Automation)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-600">Email Address</label>
                 <p className="text-black">{normalizedInfo.contactEmail || 'N/A'}</p>
@@ -374,17 +606,25 @@ export default function AutoSubmitModal({
                 <p className="text-black">{normalizedInfo.dba || 'N/A'}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Org Type</label>
+                <label className="text-sm font-medium text-gray-600">Legal Entity / Org Type</label>
                 <p className="text-black">{normalizedInfo.ownershipType || 'N/A'}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Years at Location</label>
-                <p className="text-black">{normalizedInfo.yearsAtLocation || 'N/A'}</p>
+                <label className="text-sm font-medium text-gray-600">Year Built</label>
+                <p className="text-black">{normalizedInfo.yearBuilt || 'N/A'}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Gasoline Gallon Annual</label>
+                <label className="text-sm font-medium text-gray-600">Square Footage</label>
+                <p className="text-black">{normalizedInfo.totalSqFootage?.toLocaleString() || 'N/A'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">No. of MPDs (Pumps)</label>
+                <p className="text-black">{normalizedInfo.noOfMPOs || 'N/A'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600">Gasoline Gallons (Annual)</label>
                 <p className="text-black">
-                  {gasolineSales ? `$${gasolineSales.toLocaleString()}` : 'N/A'}
+                  {gasolineSales ? gasolineSales.toLocaleString() : 'N/A'}
                 </p>
               </div>
               <div>
@@ -394,31 +634,11 @@ export default function AutoSubmitModal({
                 </p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Construction Type</label>
-                <p className="text-black">{normalizedInfo.constructionType || 'N/A'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">No. of Stories</label>
-                <p className="text-black">{noOfStories}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Square Footage</label>
-                <p className="text-black">{normalizedInfo.totalSqFootage?.toLocaleString() || 'N/A'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Year Built</label>
-                <p className="text-black">{normalizedInfo.yearBuilt || 'N/A'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">BI (Business Income)</label>
+                <label className="text-sm font-medium text-gray-600">Combined Sales</label>
                 <p className="text-black">
-                  {bi ? `$${bi.toLocaleString()}` : 'N/A'}
-                </p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">BPP (Business Personal Property)</label>
-                <p className="text-black">
-                  {bpp ? `$${bpp.toLocaleString()}` : 'N/A'}
+                  {(gasolineSales || insideSales) 
+                    ? `$${((gasolineSales || 0) + (insideSales || 0)).toLocaleString()}` 
+                    : 'N/A'}
                 </p>
               </div>
             </div>
@@ -426,34 +646,41 @@ export default function AutoSubmitModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-end gap-3">
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="btn-secondary disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={!isValid || submitting}
-            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitting ? (
-              <>
-                <span className="animate-spin">⏳</span>
-                Submitting...
-              </>
-            ) : (
-              <>
-                <Rocket className="w-4 h-4" />
-                Submit to RPA
-              </>
-            )}
-          </button>
+        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+          <div className="text-sm text-gray-600">
+            {selectedCarriers.length === 0 
+              ? 'Select at least one carrier'
+              : `Submitting to: ${selectedCarriers.map(c => c === 'encova' ? 'Encova' : 'Guard').join(' & ')}`
+            }
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              disabled={submitting}
+              className="btn-secondary disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onConfirm(selectedCarriers)}
+              disabled={!isValid || submitting}
+              className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Rocket className="w-4 h-4" />
+                  Submit to RPA
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
