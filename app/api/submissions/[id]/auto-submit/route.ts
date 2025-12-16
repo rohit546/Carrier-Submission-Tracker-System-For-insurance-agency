@@ -113,14 +113,27 @@ function parsePhone(phone: string | null | undefined): { area: string; prefix: s
 }
 
 // Helper to map ownership type to legal entity code
-function mapLegalEntity(ownershipType: string | null | undefined): string {
-  if (!ownershipType) return 'L'; // Default to LLC
-  const type = ownershipType.toLowerCase();
-  if (type.includes('llc') || type.includes('limited liability')) return 'L';
-  if (type.includes('corp') || type.includes('inc')) return 'C';
-  if (type.includes('partner')) return 'P';
-  if (type.includes('individual') || type.includes('sole') || type.includes('proprietor')) return 'I';
-  return 'L'; // Default
+// L=LLC, C=Corporation, P=Partnership, I=Individual, J=Joint Venture
+function mapLegalEntity(ownershipType: string | null | undefined, companyName?: string): string {
+  // First check ownership type field
+  if (ownershipType) {
+    const type = ownershipType.toLowerCase();
+    if (type.includes('llc') || type.includes('limited liability')) return 'L';
+    if (type.includes('corp') || type.includes('inc')) return 'C';
+    if (type.includes('partner')) return 'P';
+    if (type.includes('individual') || type.includes('sole') || type.includes('proprietor')) return 'I';
+    if (type.includes('joint') || type.includes('venture')) return 'J';
+  }
+  
+  // If ownership type doesn't indicate legal entity, check company name
+  if (companyName) {
+    const name = companyName.toUpperCase();
+    if (name.includes(' LLC') || name.includes(',LLC') || name.includes(' L.L.C')) return 'L';
+    if (name.includes(' INC') || name.includes(' CORP') || name.includes(' INCORPORATED')) return 'C';
+    if (name.includes(' LP') || name.includes(' LLP') || name.includes('PARTNERSHIP')) return 'P';
+  }
+  
+  return 'L'; // Default to LLC
 }
 
 // Helper to format date as MM/DD/YYYY
@@ -275,7 +288,7 @@ function buildGuardPayload(normalized: any, submissionId: string) {
 
   // Map ownership type to legal entity code
   // L=LLC, C=Corporation, P=Partnership, I=Individual, J=Joint Venture
-  const legalEntity = mapLegalEntity(normalized.ownershipType);
+  const legalEntity = mapLegalEntity(normalized.ownershipType, normalized.corporationName);
   
   // Map ownership for tenant/owner field
   const ownershipType = normalized.ownershipType?.toLowerCase().includes('owner') ? 'owner' : 'tenant';
