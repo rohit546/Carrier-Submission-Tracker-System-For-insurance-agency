@@ -305,6 +305,28 @@ function validateDescription(desc: string | null | undefined): { valid: boolean;
   return { valid: true };
 }
 
+// Validate year built - must be a valid year
+function validateYearBuilt(year: number | string | null | undefined): { valid: boolean; error?: string } {
+  if (year === null || year === undefined || year === '') {
+    return { valid: false, error: 'Year built is required' };
+  }
+  
+  const num = typeof year === 'string' ? parseInt(year, 10) : year;
+  
+  if (isNaN(num)) {
+    return { valid: false, error: 'Year built must be a number' };
+  }
+  
+  const currentYear = new Date().getFullYear();
+  const minYear = 1800; // Reasonable minimum for building construction
+  
+  if (num < minYear || num > currentYear + 1) {
+    return { valid: false, error: `Year built must be between ${minYear} and ${currentYear + 1}` };
+  }
+  
+  return { valid: true };
+}
+
 // Helper to normalize insured info (handle both camelCase and snake_case)
 function normalizeInsuredInfo(data: any): InsuredInformation | null {
   if (!data) return null;
@@ -448,7 +470,7 @@ export default function AutoSubmitModal({
     }
 
     // === GUARD-SPECIFIC REQUIRED FIELDS ===
-    totalFields += 2;
+    totalFields += 3; // years, description, year built
 
     // Years in Business - required for Guard
     const yearsInBusiness = normalizedInfo.yearsExpInBusiness || normalizedInfo.yearsAtLocation;
@@ -463,6 +485,15 @@ export default function AutoSubmitModal({
     const descValidation = validateDescription(normalizedInfo.operationDescription);
     if (!descValidation.valid) {
       gErrors.push(descValidation.error || 'Description of operations is required');
+    } else {
+      completeFields++;
+    }
+
+    // Year Built - required for both Encova and Guard
+    const yearBuiltValidation = validateYearBuilt(normalizedInfo.yearBuilt);
+    if (!yearBuiltValidation.valid) {
+      eErrors.push(yearBuiltValidation.error || 'Year built is required');
+      gErrors.push(yearBuiltValidation.error || 'Year built is required');
     } else {
       completeFields++;
     }
@@ -538,6 +569,7 @@ export default function AutoSubmitModal({
   const yearsInBusiness = normalizedInfo.yearsExpInBusiness || normalizedInfo.yearsAtLocation;
   const yearsValidation = validateYearsInBusiness(yearsInBusiness);
   const descValidation = validateDescription(normalizedInfo.operationDescription);
+  const yearBuiltValidation = validateYearBuilt(normalizedInfo.yearBuilt);
   
   // Get first/last name from validation result
   const { firstName, lastName } = contactValidation.valid 
@@ -803,9 +835,9 @@ export default function AutoSubmitModal({
             <div className="mt-4 pt-4 border-t border-gray-200">
               <h4 className="text-sm font-semibold text-orange-600 mb-3 flex items-center gap-2">
                 <Shield className="w-4 h-4" />
-                Guard-Specific Required Fields
+                Additional Required Fields
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-600">Years in Business *</label>
                   <p className={`text-black ${!yearsValidation.valid ? 'text-red-600' : ''}`}>
@@ -813,6 +845,18 @@ export default function AutoSubmitModal({
                   </p>
                   {!yearsValidation.valid && (
                     <p className="text-xs text-red-600 mt-1">{yearsValidation.error}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Year Built *</label>
+                  <p className={`text-black ${!yearBuiltValidation.valid ? 'text-red-600' : ''}`}>
+                    {normalizedInfo.yearBuilt || 'Missing'}
+                  </p>
+                  {!yearBuiltValidation.valid && (
+                    <p className="text-xs text-red-600 mt-1">{yearBuiltValidation.error}</p>
+                  )}
+                  {yearBuiltValidation.valid && (
+                    <p className="text-xs text-green-600 mt-1">✓ Valid year</p>
                   )}
                 </div>
                 <div>
@@ -843,10 +887,6 @@ export default function AutoSubmitModal({
               <div>
                 <label className="text-sm font-medium text-gray-600">Legal Entity / Org Type</label>
                 <p className="text-black">{normalizedInfo.ownershipType || 'N/A'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Year Built</label>
-                <p className="text-black">{normalizedInfo.yearBuilt || 'N/A'}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">Square Footage</label>

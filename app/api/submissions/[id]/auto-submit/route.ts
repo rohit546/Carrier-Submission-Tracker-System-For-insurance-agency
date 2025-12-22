@@ -443,6 +443,28 @@ export async function POST(
       );
     }
 
+    // Validate year built - required for both carriers
+    if (!normalized.yearBuilt) {
+      return NextResponse.json(
+        { error: 'Year built is required for RPA submission.' },
+        { status: 400 }
+      );
+    }
+    
+    const yearBuiltNum = typeof normalized.yearBuilt === 'string' 
+      ? parseInt(normalized.yearBuilt, 10) 
+      : normalized.yearBuilt;
+    
+    if (isNaN(yearBuiltNum) || yearBuiltNum < 1800 || yearBuiltNum > new Date().getFullYear() + 1) {
+      return NextResponse.json(
+        { 
+          error: `Year built must be a valid year between 1800 and ${new Date().getFullYear() + 1}`,
+          field: 'yearBuilt'
+        },
+        { status: 400 }
+      );
+    }
+
     // Validate FEIN if provided
     const feinValidation = validateFEIN(normalized.fein);
     if (!feinValidation.valid) {
