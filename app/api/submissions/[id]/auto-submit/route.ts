@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSubmission, getInsuredInformation } from '@/lib/db/queries';
 
 // Carrier types
-type CarrierType = 'encova' | 'guard';
+type CarrierType = 'encova' | 'guard' | 'columbia';
 
 // Webhook URLs
 const ENCOVA_WEBHOOK_URL = process.env.ENCOVA_WEBHOOK_URL || 'https://encova-submission-bot-rpa-production.up.railway.app/webhook';
 const GUARD_WEBHOOK_URL = process.env.GUARD_WEBHOOK_URL || 'https://guardsubmissionbot-production.up.railway.app/webhook';
+const COLUMBIA_WEBHOOK_URL = process.env.COLUMBIA_WEBHOOK_URL || 'https://columbia-submission-bot-production.up.railway.app/webhook';
 
 // Helper to parse address and extract components
 function parseAddress(address: string | null | undefined): { 
@@ -150,6 +151,44 @@ function formatDate(date: string | null | undefined): string {
   } catch {
     return date;
   }
+}
+
+// Helper to map ownership type to Columbia business type format
+function mapColumbiaBusinessType(ownershipType: string | null | undefined, companyName: string | null | undefined): string {
+  const type = (ownershipType || '').toUpperCase();
+  const company = (companyName || '').toUpperCase();
+
+  if (type.includes('LLC') || type.includes('LIMITED LIABILITY') || company.includes('LLC')) {
+    return 'LIMITED LIABILITY COMPANY';
+  }
+  if (type.includes('CORP') || type.includes('INCORPORATED') || company.includes('CORP') || company.includes('INC')) {
+    return 'CORPORATION';
+  }
+  if (type.includes('PARTNER') || type.includes('LP') || type.includes('LLP')) {
+    return 'PARTNERSHIP';
+  }
+  if (type.includes('SOLE') || type.includes('INDIVIDUAL') || type.includes('PROPRIETOR')) {
+    return 'SOLE PROPRIETORSHIP';
+  }
+  
+  return 'LIMITED LIABILITY COMPANY'; // Default
+}
+
+// Helper to determine applicant_is (tenant/owner) for Columbia
+function mapColumbiaApplicantIs(applicantIs: string | null | undefined, ownershipType: string | null | undefined): string {
+  if (applicantIs) {
+    const lower = applicantIs.toLowerCase();
+    if (lower.includes('owner')) return 'owner';
+    if (lower.includes('tenant')) return 'tenant';
+  }
+  
+  if (ownershipType) {
+    const lower = ownershipType.toLowerCase();
+    if (lower.includes('owner')) return 'owner';
+    if (lower.includes('tenant')) return 'tenant';
+  }
+  
+  return 'tenant'; // Default
 }
 
 // Helper to validate FEIN format
@@ -347,6 +386,64 @@ function buildGuardPayload(normalized: any, submissionId: string) {
   };
 }
 
+// Build Columbia payload
+function buildColumbiaPayload(normalized: any, submissionId: string) {
+  // Format effective date (MM/DD/YYYY) - use proposed date or tomorrow
+  let effectiveDate = '';
+  if (normalized.proposedEffectiveDate) {
+    effectiveDate = formatDate(normalized.proposedEffectiveDate);
+  } else {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    effectiveDate = formatDate(tomorrow.toISOString());
+  }
+
+  // Map business type
+  const businessType = mapColumbiaBusinessType(normalized.ownershipType, normalized.corporationName);
+  
+  // Map applicant_is (tenant/owner)
+  const applicantIs = mapColumbiaApplicantIs(normalized.applicantIs, normalized.ownershipType);
+  
+  // Get sales data
+  const insideSalesYearly = Number((normalized.generalLiability as any)?.insideSalesYearly || 
+                            (normalized.generalLiability as any)?.inside_sales_yearly || 0);
+  const grossSales = String(insideSalesYearly);
+  
+  // Get property coverage
+  const bppLimit = (normalized.propertyCoverage as any)?.bpp || (normalized.propertyCoverage as any)?.BPP || '';
+  const buildingLimit = (normalized.propertyCoverage as any)?.building || 
+                       (normalized.propertyCoverage as any)?.bi || 
+                       (normalized.propertyCoverage as any)?.BI || '';
+  
+  // Get number of stories
+  const noOfStories = (normalized as any).noOfStories || normalized.noOfStories || '';
+
+  return {
+    action: 'start_automation',
+    task_id: `columbia_${submissionId}_${Date.now()}`,
+    quote_data: {
+      // Required fields
+      person_entering_risk: normalized.contactName || '',
+      person_entering_risk_email: normalized.contactEmail || '',
+      company_name: normalized.corporationName || '',
+      mailing_address: normalized.address || '',
+      
+      // Optional fields
+      dba: normalized.dba || '',
+      effective_date: effectiveDate,
+      business_type: businessType,
+      applicant_is: applicantIs,
+      gross_sales: grossSales,
+      construction_year: normalized.yearBuilt ? String(normalized.yearBuilt) : '',
+      number_of_stories: noOfStories ? String(noOfStories) : '',
+      square_footage: normalized.totalSqFootage ? String(normalized.totalSqFootage) : '',
+      bpp_limit: bppLimit ? String(bppLimit) : '',
+      // building_limit only if owner
+      ...(applicantIs === 'owner' && buildingLimit ? { building_limit: String(buildingLimit) } : {}),
+    },
+  };
+}
+
 // Send to carrier webhook
 async function sendToCarrier(carrier: CarrierType, payload: any): Promise<{
   carrier: CarrierType;
@@ -354,7 +451,11 @@ async function sendToCarrier(carrier: CarrierType, payload: any): Promise<{
   data?: any;
   error?: string;
 }> {
-  const webhookUrl = carrier === 'encova' ? ENCOVA_WEBHOOK_URL : GUARD_WEBHOOK_URL;
+  const webhookUrl = carrier === 'encova' 
+    ? ENCOVA_WEBHOOK_URL 
+    : carrier === 'guard' 
+    ? GUARD_WEBHOOK_URL 
+    : COLUMBIA_WEBHOOK_URL;
   
   try {
     console.log(`[AUTO-SUBMIT] Sending to ${carrier}:`, JSON.stringify(payload, null, 2));
@@ -399,7 +500,7 @@ export async function POST(
   try {
     const submissionId = params.id;
     const body = await request.json().catch(() => ({}));
-    const carriers: CarrierType[] = body.carriers || ['encova', 'guard'];
+    const carriers: CarrierType[] = body.carriers || ['encova', 'guard', 'columbia'];
     
     console.log(`[AUTO-SUBMIT] Request for submission ${submissionId}, carriers: ${carriers.join(', ')}`);
 
@@ -510,6 +611,48 @@ export async function POST(
       }
     }
 
+    // Columbia-specific validation
+    if (carriers.includes('columbia')) {
+      // All required fields for Columbia
+      if (!normalized.contactName) {
+        return NextResponse.json(
+          { error: 'Contact name is required for Columbia submission.' },
+          { status: 400 }
+        );
+      }
+      if (!normalized.contactEmail) {
+        return NextResponse.json(
+          { error: 'Contact email is required for Columbia submission.' },
+          { status: 400 }
+        );
+      }
+      if (!normalized.corporationName) {
+        return NextResponse.json(
+          { error: 'Company name is required for Columbia submission.' },
+          { status: 400 }
+        );
+      }
+      if (!normalized.address) {
+        return NextResponse.json(
+          { error: 'Mailing address is required for Columbia submission.' },
+          { status: 400 }
+        );
+      }
+      
+      // Square footage must be >= 3000
+      const sqFootage = normalized.totalSqFootage;
+      if (!sqFootage || sqFootage < 3000) {
+        return NextResponse.json(
+          { 
+            error: 'Square footage must be at least 3,000 for Columbia submission.',
+            field: 'totalSqFootage',
+            details: `Current square footage: ${sqFootage || 'not provided'}. Columbia requires minimum 3,000 sq ft.`
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // Build payloads and send in parallel
     const promises: Promise<any>[] = [];
     
@@ -521,6 +664,11 @@ export async function POST(
     if (carriers.includes('guard')) {
       const guardPayload = buildGuardPayload(normalized, submissionId);
       promises.push(sendToCarrier('guard', guardPayload));
+    }
+    
+    if (carriers.includes('columbia')) {
+      const columbiaPayload = buildColumbiaPayload(normalized, submissionId);
+      promises.push(sendToCarrier('columbia', columbiaPayload));
     }
 
     // Wait for all requests to complete

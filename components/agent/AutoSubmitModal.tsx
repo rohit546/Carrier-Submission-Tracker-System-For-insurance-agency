@@ -5,7 +5,7 @@ import { InsuredInformation } from '@/lib/types';
 import { X, CheckCircle, AlertCircle, Rocket, Building2, Shield } from 'lucide-react';
 
 // Carrier types
-export type CarrierType = 'encova' | 'guard';
+export type CarrierType = 'encova' | 'guard' | 'columbia';
 
 interface AutoSubmitModalProps {
   isOpen: boolean;
@@ -380,9 +380,10 @@ export default function AutoSubmitModal({
   insuredInfo,
   submitting = false,
 }: AutoSubmitModalProps) {
-  const [selectedCarriers, setSelectedCarriers] = useState<CarrierType[]>(['encova', 'guard']);
+  const [selectedCarriers, setSelectedCarriers] = useState<CarrierType[]>(['encova', 'guard', 'columbia']);
   const [encovaErrors, setEncovaErrors] = useState<string[]>([]);
   const [guardErrors, setGuardErrors] = useState<string[]>([]);
+  const [columbiaErrors, setColumbiaErrors] = useState<string[]>([]);
   const [completeness, setCompleteness] = useState(0);
 
   const normalizedInfo = normalizeInsuredInfo(insuredInfo);
@@ -397,12 +398,14 @@ export default function AutoSubmitModal({
     if (!normalizedInfo) {
       setEncovaErrors(['Insured information is not available']);
       setGuardErrors(['Insured information is not available']);
+      setColumbiaErrors(['Insured information is not available']);
       setCompleteness(0);
       return;
     }
 
     const eErrors: string[] = [];
     const gErrors: string[] = [];
+    const cErrors: string[] = [];
     let completeFields = 0;
     let totalFields = 0;
 
@@ -500,6 +503,40 @@ export default function AutoSubmitModal({
 
     // Policy Inception Date - NOT required (auto-set by Guard automation)
 
+    // === COLUMBIA-SPECIFIC VALIDATION ===
+    // All fields are mandatory for Columbia
+    // Contact Name - already validated above, but add to Columbia errors if missing
+    if (!contactValidation.valid) {
+      cErrors.push(contactValidation.error || 'Contact name is required');
+    }
+    
+    // Email - already validated above, but add to Columbia errors if missing
+    if (!emailValidation.valid) {
+      cErrors.push(emailValidation.error || 'Contact email is required');
+    }
+    
+    // Corporation Name - already validated above, but add to Columbia errors if missing
+    if (!corpValidation.valid) {
+      cErrors.push(corpValidation.error || 'Company name is required');
+    }
+    
+    // Address - already validated above, but add to Columbia errors if missing
+    if (!normalizedInfo.address?.trim()) {
+      cErrors.push('Mailing address is required');
+    } else {
+      if (!zipValidation.valid) {
+        cErrors.push(zipValidation.error || 'Valid zip code is required');
+      }
+    }
+    
+    // Square Footage - must be >= 3000 for Columbia
+    const sqFootage = normalizedInfo.totalSqFootage;
+    if (!sqFootage) {
+      cErrors.push('Square footage is required for Columbia submission');
+    } else if (sqFootage < 3000) {
+      cErrors.push(`Square footage must be at least 3,000 for Columbia (current: ${sqFootage.toLocaleString()} sq ft)`);
+    }
+
     // === ENCOVA-SPECIFIC VALIDATION ===
     // FEIN - optional, but validate format if provided
     const fein = normalizedInfo.fein || '';
@@ -523,6 +560,7 @@ export default function AutoSubmitModal({
 
     setEncovaErrors(eErrors);
     setGuardErrors(gErrors);
+    setColumbiaErrors(cErrors);
     setCompleteness(Math.round((completeFields / totalFields) * 100));
   }
 
@@ -579,7 +617,8 @@ export default function AutoSubmitModal({
   // Check if any selected carrier has errors
   const hasEncovaErrors = selectedCarriers.includes('encova') && encovaErrors.length > 0;
   const hasGuardErrors = selectedCarriers.includes('guard') && guardErrors.length > 0;
-  const isValid = selectedCarriers.length > 0 && !hasEncovaErrors && !hasGuardErrors;
+  const hasColumbiaErrors = selectedCarriers.includes('columbia') && columbiaErrors.length > 0;
+  const isValid = selectedCarriers.length > 0 && !hasEncovaErrors && !hasGuardErrors && !hasColumbiaErrors;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -607,7 +646,7 @@ export default function AutoSubmitModal({
               <Shield className="w-5 h-5 text-blue-600" />
               Select Carriers to Submit
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Encova Card */}
               <label 
                 className={`relative flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
@@ -683,11 +722,49 @@ export default function AutoSubmitModal({
                   )}
                 </div>
               </label>
+
+              {/* Columbia Card */}
+              <label 
+                className={`relative flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  selectedCarriers.includes('columbia')
+                    ? 'border-purple-500 bg-purple-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedCarriers.includes('columbia')}
+                  onChange={() => toggleCarrier('columbia')}
+                  disabled={submitting}
+                  className="mt-1 h-5 w-5 text-purple-600 rounded"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-purple-600" />
+                    <span className="font-semibold text-black">Columbia</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Quote automation (Min 3,000 sq ft)
+                  </p>
+                  {selectedCarriers.includes('columbia') && columbiaErrors.length > 0 && (
+                    <div className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {columbiaErrors.length} validation error{columbiaErrors.length > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  {selectedCarriers.includes('columbia') && columbiaErrors.length === 0 && (
+                    <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Ready to submit
+                    </div>
+                  )}
+                </div>
+              </label>
             </div>
           </div>
 
           {/* Validation Errors */}
-          {(hasEncovaErrors || hasGuardErrors) && (
+          {(hasEncovaErrors || hasGuardErrors || hasColumbiaErrors) && (
             <div className="space-y-3">
               {hasEncovaErrors && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -712,6 +789,21 @@ export default function AutoSubmitModal({
                       <h3 className="font-semibold text-orange-800 mb-2">Guard - Required Fields Missing:</h3>
                       <ul className="list-disc list-inside space-y-1 text-sm text-orange-700">
                         {guardErrors.map((error, idx) => (
+                          <li key={idx}>{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {hasColumbiaErrors && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <Building2 className="w-5 h-5 text-purple-600 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-purple-800 mb-2">Columbia - Required Fields Missing:</h3>
+                      <ul className="list-disc list-inside space-y-1 text-sm text-purple-700">
+                        {columbiaErrors.map((error, idx) => (
                           <li key={idx}>{error}</li>
                         ))}
                       </ul>
@@ -925,7 +1017,12 @@ export default function AutoSubmitModal({
           <div className="text-sm text-gray-600">
             {selectedCarriers.length === 0 
               ? 'Select at least one carrier'
-              : `Submitting to: ${selectedCarriers.map(c => c === 'encova' ? 'Encova' : 'Guard').join(' & ')}`
+              : `Submitting to: ${selectedCarriers.map(c => {
+                  if (c === 'encova') return 'Encova';
+                  if (c === 'guard') return 'Guard';
+                  if (c === 'columbia') return 'Columbia';
+                  return c;
+                }).join(' & ')}`
             }
           </div>
           <div className="flex items-center gap-3">
