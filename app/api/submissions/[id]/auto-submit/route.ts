@@ -710,10 +710,15 @@ export async function POST(
     
     for (const result of results) {
       if (result.success && result.data?.task_id) {
+        // Check if bot returned status (e.g., "accepted")
+        const botStatus = result.data?.status || 'queued';
+        const initialStatus = botStatus === 'accepted' ? 'accepted' : 'queued';
+        
         updatedRpaTasks[result.carrier] = {
           task_id: result.data.task_id,
-          status: 'queued', // Initial status
+          status: initialStatus,
           submitted_at: now,
+          ...(botStatus === 'accepted' ? { accepted_at: now } : {}),
         };
       }
     }

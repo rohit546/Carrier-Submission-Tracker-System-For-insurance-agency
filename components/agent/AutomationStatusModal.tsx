@@ -22,6 +22,7 @@ interface CarrierStatusInfo {
 export default function AutomationStatusModal({ isOpen, onClose, submissionId, initialRpaTasks }: AutomationStatusModalProps) {
   const [rpaTasks, setRpaTasks] = useState<Submission['rpa_tasks']>(initialRpaTasks);
   const [isPolling, setIsPolling] = useState(false);
+  const [, setProgressUpdate] = useState(0); // Force re-render for progress bar
 
   // Check if any tasks are still in progress
   const hasActiveTasks = () => {
@@ -43,6 +44,69 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
       console.error('Failed to fetch RPA status:', error);
     }
   }
+
+  // Simulate status progression for user engagement
+  useEffect(() => {
+    if (!isOpen || !rpaTasks) return;
+
+    const intervals: NodeJS.Timeout[] = [];
+
+    Object.entries(rpaTasks).forEach(([carrier, task]) => {
+      if (!task) return;
+
+      // Only simulate if task is queued or accepted (not completed/failed)
+      if (task.status === 'queued' || task.status === 'accepted') {
+        const submittedTime = new Date(task.submitted_at).getTime();
+        const now = Date.now();
+        const elapsed = now - submittedTime;
+
+        // Auto-progress to accepted after 2 seconds if still queued
+        if (task.status === 'queued' && elapsed > 2000 && !task.accepted_at) {
+          const acceptedTimeout = setTimeout(() => {
+            setRpaTasks(prev => ({
+              ...prev,
+              [carrier]: {
+                ...task,
+                status: 'accepted' as const,
+                accepted_at: new Date().toISOString(),
+              }
+            }));
+          }, Math.max(0, 2000 - elapsed));
+          intervals.push(acceptedTimeout);
+        }
+
+        // Auto-progress to running after 5 seconds if accepted
+        if (task.status === 'accepted' && elapsed > 5000 && !task.running_at) {
+          const runningTimeout = setTimeout(() => {
+            setRpaTasks(prev => ({
+              ...prev,
+              [carrier]: {
+                ...prev?.[carrier],
+                status: 'running' as const,
+                running_at: new Date().toISOString(),
+              }
+            }));
+          }, Math.max(0, 5000 - elapsed));
+          intervals.push(runningTimeout);
+        }
+      }
+    });
+
+    return () => {
+      intervals.forEach(clearTimeout);
+    };
+  }, [rpaTasks, isOpen]);
+
+  // Update progress bar in real-time for running tasks
+  useEffect(() => {
+    if (!isOpen || !hasActiveTasks()) return;
+
+    const interval = setInterval(() => {
+      setProgressUpdate(prev => prev + 1); // Force re-render to update progress
+    }, 1000); // Update every second for smooth progress
+
+    return () => clearInterval(interval);
+  }, [rpaTasks, isOpen]);
 
   // Poll for updates if there are active tasks
   useEffect(() => {
@@ -183,6 +247,22 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
     }
   }
 
+  function getProgressPercentage(status: RpaTaskStatus): number {
+    if (status.status === 'completed') return 100;
+    if (status.status === 'failed') return 100;
+    if (status.status === 'running') {
+      // Calculate progress based on elapsed time (assume 3-5 minutes total)
+      const runningTime = status.running_at ? new Date(status.running_at).getTime() : Date.now();
+      const elapsed = Date.now() - runningTime;
+      const estimatedTotal = 4 * 60 * 1000; // 4 minutes average
+      const progress = Math.min(95, Math.max(30, (elapsed / estimatedTotal) * 100));
+      return progress;
+    }
+    if (status.status === 'accepted') return 20;
+    if (status.status === 'queued') return 5;
+    return 0;
+  }
+
   function getCarrierColorClasses(color: string) {
     switch (color) {
       case 'blue':
@@ -274,6 +354,10 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
                   );
                 }
 
+                const progress = getProgressPercentage(status);
+                const isActive = status.status === 'queued' || status.status === 'accepted' || status.status === 'running';
+                const showProgress = isActive || status.status === 'completed';
+
                 return (
                   <div
                     key={carrier.key}
@@ -288,6 +372,41 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
                       </div>
                       {getStatusBadge(status)}
                     </div>
+
+                    {/* Progress Bar */}
+                    {showProgress && (
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`text-xs font-medium ${
+                            status.status === 'completed' ? 'text-green-600' : 'text-gray-600'
+                          }`}>
+                            {status.status === 'completed' ? 'Completed' : 'Progress'}
+                          </span>
+                          <span className={`text-xs font-semibold ${
+                            status.status === 'completed' ? 'text-green-700' : 'text-gray-700'
+                          }`}>
+                            {Math.round(progress)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden relative">
+                          <div
+                            className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                              status.status === 'queued' ? 'bg-gray-400' :
+                              status.status === 'accepted' ? 'bg-blue-500' :
+                              status.status === 'running' ? 'bg-yellow-500' :
+                              status.status === 'completed' ? 'bg-green-500' :
+                              'bg-red-500'
+                            }`}
+                            style={{
+                              width: `${progress}%`,
+                            }}
+                          />
+                          {status.status === 'running' && (
+                            <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse" />
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="space-y-2 text-sm">
                       {/* Status Timeline */}

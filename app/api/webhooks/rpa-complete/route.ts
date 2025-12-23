@@ -72,15 +72,43 @@ export async function POST(request: NextRequest) {
     const currentTask = currentRpaTasks[carrier] || {};
     const now = completed_at || new Date().toISOString();
     
+    // Smart status transition: if jumping from queued directly to completed/running,
+    // automatically set accepted_at and running_at timestamps
+    let accepted_at = currentTask.accepted_at;
+    let running_at = currentTask.running_at;
+    let finalStatus = status;
+    
+    if (status === 'accepted') {
+      accepted_at = now;
+    } else if (status === 'running') {
+      // If we're going to running but haven't set accepted yet, set it now
+      if (!accepted_at) {
+        accepted_at = now;
+      }
+      running_at = now;
+    } else if (status === 'completed' || status === 'failed') {
+      // If completing but we haven't set accepted/running yet, set them with small delays
+      if (!accepted_at) {
+        // Set accepted 1 second after submitted
+        const submittedTime = new Date(currentTask.submitted_at || now).getTime();
+        accepted_at = new Date(submittedTime + 1000).toISOString();
+      }
+      if (!running_at) {
+        // Set running 2 seconds after accepted
+        const acceptedTime = new Date(accepted_at).getTime();
+        running_at = new Date(acceptedTime + 2000).toISOString();
+      }
+    }
+    
     // Update the specific carrier's status with proper timestamps
     const updatedRpaTasks = {
       ...currentRpaTasks,
       [carrier]: {
         task_id,
-        status,
+        status: finalStatus,
         submitted_at: currentTask.submitted_at || now,
-        accepted_at: status === 'accepted' ? now : (currentTask.accepted_at || null),
-        running_at: status === 'running' ? now : (currentTask.running_at || null),
+        accepted_at: accepted_at || null,
+        running_at: running_at || null,
         completed_at: (status === 'completed' || status === 'failed') ? now : (currentTask.completed_at || null),
         ...(status === 'completed' && body.result ? {
           result: {

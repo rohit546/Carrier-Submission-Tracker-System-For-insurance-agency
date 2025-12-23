@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { Submission, BusinessType, Carrier, CarrierQuote, InsuredInformation } from '@/lib/types';
 import InsuredInfoSection from './InsuredInfoSection';
 import AutoSubmitModal, { CarrierType } from './AutoSubmitModal';
-import RPAStatusDisplay from './RPAStatusDisplay';
 import AutomationStatusModal from './AutomationStatusModal';
 import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send, Rocket, Activity } from 'lucide-react';
 
@@ -392,15 +391,6 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
             </button>
           </div>
         </div>
-      )}
-
-      {/* RPA Status Display - Shows real-time status for all carriers */}
-      {submission.rpa_tasks && Object.keys(submission.rpa_tasks).length > 0 && (
-        <RPAStatusDisplay 
-          submissionId={submission.id}
-          initialRpaTasks={submission.rpa_tasks}
-          key={submission.id} // Force re-render when submission changes
-        />
       )}
 
       {/* Insured Information Section - Show First */}
