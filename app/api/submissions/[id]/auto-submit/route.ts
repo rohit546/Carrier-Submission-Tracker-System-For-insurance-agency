@@ -429,9 +429,9 @@ function buildColumbiaPayload(normalized: any, submissionId: string) {
     action: 'start_automation',
     task_id: `columbia_${submissionId}_${Date.now()}`,
     quote_data: {
-      // Required fields
-      person_entering_risk: normalized.contactName || '',
-      person_entering_risk_email: normalized.contactEmail || '',
+      // Required fields - HARDCODED for all Columbia submissions
+      person_entering_risk: 'Shahnaz Sutar',
+      person_entering_risk_email: 'info@mckinneyandco.com',
       company_name: normalized.corporationName || '',
       mailing_address: normalized.address || '',
       
