@@ -679,6 +679,18 @@ export async function POST(
       }
     }
 
+    // ENCOVA DOES NOT ACCEPT TEXAS (TX)
+    if (carriers.includes('encova') && address.state.toUpperCase() === 'TX') {
+      return NextResponse.json(
+        { 
+          error: 'Encova does not accept submissions from Texas (TX)',
+          field: 'state',
+          details: 'Please deselect Encova for Texas submissions.'
+        },
+        { status: 400 }
+      );
+    }
+
     // Build payloads and send in parallel
     const promises: Promise<any>[] = [];
     

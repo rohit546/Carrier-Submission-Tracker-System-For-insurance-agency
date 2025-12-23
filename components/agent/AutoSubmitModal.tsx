@@ -388,11 +388,20 @@ export default function AutoSubmitModal({
 
   const normalizedInfo = normalizeInsuredInfo(insuredInfo);
 
+  // Check if state is Texas (for Encova restriction)
+  const stateFromAddress = extractState(normalizedInfo?.address || '');
+  const isTexas = stateFromAddress.toUpperCase() === 'TX';
+
   useEffect(() => {
     if (isOpen && normalizedInfo) {
       validateAndCalculateCompleteness();
+      
+      // Auto-deselect Encova if state is Texas
+      if (isTexas && selectedCarriers.includes('encova')) {
+        setSelectedCarriers(prev => prev.filter(c => c !== 'encova'));
+      }
     }
-  }, [isOpen, normalizedInfo]);
+  }, [isOpen, normalizedInfo, isTexas]);
 
   function validateAndCalculateCompleteness() {
     if (!normalizedInfo) {
@@ -469,6 +478,12 @@ export default function AutoSubmitModal({
       if (!state) {
         gErrors.push('State is required in address');
       }
+      
+      // ENCOVA DOES NOT ACCEPT TEXAS (TX)
+      if (state.toUpperCase() === 'TX') {
+        eErrors.push('Encova does not accept submissions from Texas (TX)');
+      }
+      
       if (zipCode && zipValidation.valid) completeFields++;
     }
 
@@ -545,13 +560,35 @@ export default function AutoSubmitModal({
       eErrors.push(feinValidation.error || 'FEIN format is invalid');
     }
 
+    // === SALES FIELDS - REQUIRED FOR ENCOVA AND GUARD ===
+    totalFields += 2; // Gasoline Gallons and Inside Sales
+    
+    const gasolineGallons = (normalizedInfo.generalLiability as any)?.gasolineSalesYearly || 
+                           (normalizedInfo.generalLiability as any)?.gasoline_sales_yearly || null;
+    const insideSalesAnnual = (normalizedInfo.generalLiability as any)?.insideSalesYearly || 
+                              (normalizedInfo.generalLiability as any)?.inside_sales_yearly || null;
+    
+    // Gasoline Gallons (Annual) - required for Encova and Guard
+    if (!gasolineGallons || Number(gasolineGallons) <= 0) {
+      eErrors.push('Gasoline Gallons (Annual) is required - please edit Coverage Details');
+      gErrors.push('Gasoline Gallons (Annual) is required for quote automation');
+    } else {
+      completeFields++;
+    }
+    
+    // Inside Sales (Annual) - required for Encova and Guard
+    if (!insideSalesAnnual || Number(insideSalesAnnual) <= 0) {
+      eErrors.push('Inside Sales (Annual) is required - please edit Coverage Details');
+      gErrors.push('Inside Sales (Annual) is required for combined sales calculation');
+    } else {
+      completeFields++;
+    }
+
     // === OPTIONAL FIELDS (for completeness) ===
-    totalFields += 10;
+    totalFields += 8; // Reduced from 10 since gasoline and inside sales are now required
     if (normalizedInfo.contactEmail?.trim()) completeFields++;
     if (normalizedInfo.dba?.trim()) completeFields++;
     if (normalizedInfo.ownershipType?.trim()) completeFields++;
-    if ((normalizedInfo.generalLiability as any)?.gasolineSalesYearly) completeFields++;
-    if ((normalizedInfo.generalLiability as any)?.insideSalesYearly) completeFields++;
     if (normalizedInfo.constructionType?.trim()) completeFields++;
     if (normalizedInfo.totalSqFootage) completeFields++;
     if (normalizedInfo.yearBuilt) completeFields++;
@@ -600,14 +637,27 @@ export default function AutoSubmitModal({
   const state = extractState(normalizedInfo.address || '');
   const zipValidation = validateZipCode(zipCode);
   const phone = parsePhone(normalizedInfo.contactNumber);
-  const gasolineSales = (normalizedInfo.generalLiability as any)?.gasolineSalesYearly || null;
-  const insideSales = (normalizedInfo.generalLiability as any)?.insideSalesYearly || null;
-  const bi = (normalizedInfo.propertyCoverage as any)?.bi || null;
-  const bpp = (normalizedInfo.propertyCoverage as any)?.bpp || null;
+  const gasolineSales = (normalizedInfo.generalLiability as any)?.gasolineSalesYearly || 
+                        (normalizedInfo.generalLiability as any)?.gasoline_sales_yearly || null;
+  const insideSales = (normalizedInfo.generalLiability as any)?.insideSalesYearly || 
+                      (normalizedInfo.generalLiability as any)?.inside_sales_yearly || null;
+  const liquorSales = (normalizedInfo.generalLiability as any)?.liquorSalesYearly || 
+                      (normalizedInfo.generalLiability as any)?.liquor_sales_yearly || null;
+  const bi = (normalizedInfo.propertyCoverage as any)?.bi || 
+             (normalizedInfo.propertyCoverage as any)?.BI || null;
+  const bpp = (normalizedInfo.propertyCoverage as any)?.bpp || 
+              (normalizedInfo.propertyCoverage as any)?.BPP || null;
+  
+  // Validation for sales fields
+  const hasGasolineSales = gasolineSales && Number(gasolineSales) > 0;
+  const hasInsideSales = insideSales && Number(insideSales) > 0;
   const yearsInBusiness = normalizedInfo.yearsExpInBusiness || normalizedInfo.yearsAtLocation;
   const yearsValidation = validateYearsInBusiness(yearsInBusiness);
   const descValidation = validateDescription(normalizedInfo.operationDescription);
   const yearBuiltValidation = validateYearBuilt(normalizedInfo.yearBuilt);
+  
+  // Use the isTexas variable from earlier (Encova doesn't accept TX)
+  // isTexas is already defined above based on stateFromAddress
   
   // Get first/last name from validation result
   const { firstName, lastName } = contactValidation.valid 
@@ -649,34 +699,41 @@ export default function AutoSubmitModal({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Encova Card */}
               <label 
-                className={`relative flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                  selectedCarriers.includes('encova')
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                className={`relative flex items-start gap-4 p-4 rounded-lg border-2 transition-all ${
+                  isTexas 
+                    ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-60'
+                    : selectedCarriers.includes('encova')
+                      ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                      : 'border-gray-200 hover:border-gray-300 cursor-pointer'
                 }`}
               >
                 <input
                   type="checkbox"
-                  checked={selectedCarriers.includes('encova')}
-                  onChange={() => toggleCarrier('encova')}
-                  disabled={submitting}
-                  className="mt-1 h-5 w-5 text-blue-600 rounded"
+                  checked={selectedCarriers.includes('encova') && !isTexas}
+                  onChange={() => !isTexas && toggleCarrier('encova')}
+                  disabled={submitting || isTexas}
+                  className="mt-1 h-5 w-5 text-blue-600 rounded disabled:opacity-50"
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-blue-600" />
-                    <span className="font-semibold text-black">Encova</span>
+                    <Building2 className={`w-5 h-5 ${isTexas ? 'text-gray-400' : 'text-blue-600'}`} />
+                    <span className={`font-semibold ${isTexas ? 'text-gray-500' : 'text-black'}`}>Encova</span>
+                    {isTexas && (
+                      <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Not Available</span>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Account creation + Quote automation
+                  <p className={`text-sm mt-1 ${isTexas ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {isTexas 
+                      ? 'Encova does not accept Texas (TX) submissions'
+                      : 'Account creation + Quote automation'}
                   </p>
-                  {selectedCarriers.includes('encova') && encovaErrors.length > 0 && (
+                  {!isTexas && selectedCarriers.includes('encova') && encovaErrors.length > 0 && (
                     <div className="mt-2 text-xs text-red-600 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {encovaErrors.length} validation error{encovaErrors.length > 1 ? 's' : ''}
                     </div>
                   )}
-                  {selectedCarriers.includes('encova') && encovaErrors.length === 0 && (
+                  {!isTexas && selectedCarriers.includes('encova') && encovaErrors.length === 0 && (
                     <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
                       <CheckCircle className="w-3 h-3" />
                       Ready to submit
@@ -961,6 +1018,37 @@ export default function AutoSubmitModal({
                     <p className="text-xs text-red-600 mt-1">{descValidation.error}</p>
                   )}
                 </div>
+                {/* Gasoline Gallons - REQUIRED */}
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Gasoline Gallons (Annual) *</label>
+                  <p className={`text-black ${!hasGasolineSales ? 'text-red-600' : ''}`}>
+                    {gasolineSales ? `${Number(gasolineSales).toLocaleString()} gal` : 'Missing - Edit Coverage Details'}
+                  </p>
+                  {hasGasolineSales ? (
+                    <p className="text-xs text-green-600 mt-1">✓ Required for quote</p>
+                  ) : (
+                    <p className="text-xs text-red-600 mt-1">Required for Encova & Guard automation</p>
+                  )}
+                </div>
+                {/* Inside Sales - REQUIRED */}
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Inside Sales (Annual) *</label>
+                  <p className={`text-black ${!hasInsideSales ? 'text-red-600' : ''}`}>
+                    {insideSales ? `$${Number(insideSales).toLocaleString()}` : 'Missing - Edit Coverage Details'}
+                  </p>
+                  {hasInsideSales ? (
+                    <p className="text-xs text-green-600 mt-1">✓ Required for combined sales</p>
+                  ) : (
+                    <p className="text-xs text-red-600 mt-1">Required for Encova & Guard automation</p>
+                  )}
+                </div>
+                {/* Liquor Sales - Optional but show if available */}
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Liquor Sales (Annual)</label>
+                  <p className="text-black">
+                    {liquorSales ? `$${Number(liquorSales).toLocaleString()}` : 'N/A'}
+                  </p>
+                </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">
                 * Policy inception date is auto-set by Guard automation
@@ -987,18 +1075,6 @@ export default function AutoSubmitModal({
               <div>
                 <label className="text-sm font-medium text-gray-600">No. of MPDs (Pumps)</label>
                 <p className="text-black">{normalizedInfo.noOfMPOs || 'N/A'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Gasoline Gallons (Annual)</label>
-                <p className="text-black">
-                  {gasolineSales ? Number(gasolineSales).toLocaleString() : 'N/A'} gal
-                </p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Inside Sales (Annual)</label>
-                <p className="text-black">
-                  {insideSales ? `$${Number(insideSales).toLocaleString()}` : 'N/A'}
-                </p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">Combined Sales (excl. gallons)</label>

@@ -586,124 +586,141 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
         </div>
       </div>
 
-      {/* Coverage Information (Collapsible) */}
-      {(normalizedInfo.propertyCoverage || normalizedInfo.generalLiability || normalizedInfo.workersCompensation) && (
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <details className="group">
-            <summary className="cursor-pointer text-lg font-semibold text-black flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Coverage Details
-            </summary>
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Property Coverage - Show all fields */}
-              {normalizedInfo.propertyCoverage && Object.keys(normalizedInfo.propertyCoverage).length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-black mb-2">Property Coverage</h4>
-                  <div className="space-y-2 text-sm">
-                    {Object.entries(isEditing ? (formData.propertyCoverage || {}) : normalizedInfo.propertyCoverage)
-                      .filter(([_, value]) => value !== null && value !== undefined)
-                      .map(([key, value]) => {
-                        const fieldLabels: { [key: string]: string } = {
-                          bi: 'Business Interruption',
-                          ms: 'Money & Securities',
-                          bpp: 'Business Personal Property',
-                          pumps: 'Pumps',
-                          canopy: 'Canopy',
-                          building: 'Building',
-                        };
-                        const label = fieldLabels[key.toLowerCase()] || key;
-                        return (
-                          <div key={key} className="flex justify-between items-center">
-                            <span className="text-gray-600">{label}:</span>
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                value={value as number || ''}
-                                onChange={(e) => updateNestedField('propertyCoverage', key, e.target.value)}
-                                className="input-field w-32 text-right"
-                                placeholder="0"
-                              />
-                            ) : (
-                              <span className="text-black font-medium">
-                                {typeof value === 'number' ? `$${value.toLocaleString()}` : String(value)}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
-
-              {/* General Liability - Show only yearly/annual values */}
-              {normalizedInfo.generalLiability && Object.keys(normalizedInfo.generalLiability).length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-black mb-2">General Liability</h4>
-                  <div className="space-y-2 text-sm">
-                    {Object.entries(isEditing ? (formData.generalLiability || {}) : normalizedInfo.generalLiability)
-                      .filter(([key, value]) => {
-                        const isYearly = key.toLowerCase().includes('yearly') || key.toLowerCase().endsWith('yearly');
-                        return isYearly && value !== null && value !== undefined;
-                      })
-                      .map(([key, value]) => {
-                        let label = key
-                          .replace(/Yearly/gi, '')
-                          .replace(/yearly/gi, '')
-                          .replace(/([A-Z])/g, ' $1')
-                          .trim();
-                        label = label.charAt(0).toUpperCase() + label.slice(1) + ' (Annual)';
-                        
-                        return (
-                          <div key={key} className="flex justify-between items-center">
-                            <span className="text-gray-600">{label}:</span>
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                value={value as number || ''}
-                                onChange={(e) => updateNestedField('generalLiability', key, e.target.value)}
-                                className="input-field w-32 text-right"
-                                placeholder="0"
-                              />
-                            ) : (
-                              <span className="text-black font-medium">
-                                {typeof value === 'number' ? `$${value.toLocaleString()}` : String(value)}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
-
-              {/* Workers Compensation - Show only noOfEmployees */}
-              {normalizedInfo.workersCompensation && normalizedInfo.workersCompensation.noOfEmployees !== null && normalizedInfo.workersCompensation.noOfEmployees !== undefined && (
-                <div>
-                  <h4 className="font-semibold text-black mb-2">Worker's Compensation</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">No. of Employees:</span>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          value={(isEditing ? (formData.workersCompensation as any)?.noOfEmployees : normalizedInfo.workersCompensation?.noOfEmployees) || ''}
-                          onChange={(e) => updateNestedField('workersCompensation', 'noOfEmployees', e.target.value)}
-                          className="input-field w-32 text-right"
-                          placeholder="0"
-                        />
-                      ) : (
-                        <span className="text-black font-medium">
-                          {String(normalizedInfo.workersCompensation.noOfEmployees)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+      {/* Coverage Information (Collapsible) - Always show */}
+      <div className="mt-6 pt-6 border-t border-gray-200">
+        <details className="group" open>
+          <summary className="cursor-pointer text-lg font-semibold text-black flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            Coverage Details
+          </summary>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Property Coverage - Show all fields */}
+            <div>
+              <h4 className="font-semibold text-black mb-2">Property Coverage</h4>
+              <div className="space-y-2 text-sm">
+                {(() => {
+                  const propCoverage = isEditing ? (formData.propertyCoverage || {}) : (normalizedInfo.propertyCoverage || {});
+                  const propFields = [
+                    { key: 'bi', label: 'Business Interruption' },
+                    { key: 'bpp', label: 'Business Personal Property' },
+                    { key: 'pumps', label: 'Pumps' },
+                    { key: 'canopy', label: 'Canopy' },
+                    { key: 'building', label: 'Building' },
+                  ];
+                  
+                  // Get existing fields from data
+                  const existingKeys = Object.keys(propCoverage);
+                  const allKeys = new Set([...propFields.map(f => f.key), ...existingKeys]);
+                  
+                  return Array.from(allKeys).map(key => {
+                    const fieldDef = propFields.find(f => f.key === key);
+                    const label = fieldDef?.label || key;
+                    const value = propCoverage[key as keyof typeof propCoverage];
+                    
+                    // Skip if no value and not editing
+                    if (!isEditing && (value === null || value === undefined || value === '')) return null;
+                    
+                    return (
+                      <div key={key} className="flex justify-between items-center">
+                        <span className="text-gray-600">{label}:</span>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            value={value as number || ''}
+                            onChange={(e) => updateNestedField('propertyCoverage', key, e.target.value)}
+                            className="input-field w-32 text-right"
+                            placeholder="0"
+                          />
+                        ) : (
+                          <span className="text-black font-medium">
+                            {typeof value === 'number' ? `$${value.toLocaleString()}` : String(value)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }).filter(Boolean);
+                })()}
+                {!isEditing && (!normalizedInfo.propertyCoverage || Object.keys(normalizedInfo.propertyCoverage).length === 0) && (
+                  <p className="text-gray-400 italic">No property coverage data - click Edit to add</p>
+                )}
+              </div>
             </div>
-          </details>
-        </div>
-      )}
+
+            {/* General Liability - ALWAYS show these required fields */}
+            <div>
+              <h4 className="font-semibold text-black mb-2">General Liability</h4>
+              <div className="space-y-2 text-sm">
+                {(() => {
+                  const genLiability = isEditing ? (formData.generalLiability || {}) : (normalizedInfo.generalLiability || {});
+                  
+                  // Always show these fields (required for RPA)
+                  const requiredFields = [
+                    { key: 'insideSalesYearly', label: 'Inside Sales (Annual)', required: true },
+                    { key: 'liquorSalesYearly', label: 'Liquor Sales (Annual)', required: false },
+                    { key: 'gasolineSalesYearly', label: 'Gasoline Gallons (Annual)', required: true, isGallons: true },
+                  ];
+                  
+                  return requiredFields.map(({ key, label, required, isGallons }) => {
+                    const value = genLiability[key as keyof typeof genLiability];
+                    const hasValue = value !== null && value !== undefined && value !== '' && value !== 0;
+                    
+                    return (
+                      <div key={key} className="flex justify-between items-center">
+                        <span className={`text-gray-600 ${required && !hasValue && !isEditing ? 'text-red-500' : ''}`}>
+                          {label}:
+                          {required && <span className="text-red-500 ml-1">*</span>}
+                        </span>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            value={value as number || ''}
+                            onChange={(e) => updateNestedField('generalLiability', key, e.target.value)}
+                            className={`input-field w-32 text-right ${required ? 'border-orange-300' : ''}`}
+                            placeholder={required ? 'Required' : '0'}
+                          />
+                        ) : (
+                          <span className={`font-medium ${hasValue ? 'text-black' : 'text-red-500'}`}>
+                            {hasValue 
+                              ? (isGallons 
+                                  ? `${Number(value).toLocaleString()} gal` 
+                                  : `$${Number(value).toLocaleString()}`)
+                              : 'Missing - Edit to add'}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Workers Compensation - Show only noOfEmployees */}
+            {(normalizedInfo.workersCompensation && normalizedInfo.workersCompensation.noOfEmployees !== null && normalizedInfo.workersCompensation.noOfEmployees !== undefined) && (
+              <div>
+                <h4 className="font-semibold text-black mb-2">Worker's Compensation</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">No. of Employees:</span>
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={(isEditing ? (formData.workersCompensation as any)?.noOfEmployees : normalizedInfo.workersCompensation?.noOfEmployees) || ''}
+                        onChange={(e) => updateNestedField('workersCompensation', 'noOfEmployees', e.target.value)}
+                        className="input-field w-32 text-right"
+                        placeholder="0"
+                      />
+                    ) : (
+                      <span className="text-black font-medium">
+                        {String(normalizedInfo.workersCompensation.noOfEmployees)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </details>
+      </div>
     </div>
   );
 }
