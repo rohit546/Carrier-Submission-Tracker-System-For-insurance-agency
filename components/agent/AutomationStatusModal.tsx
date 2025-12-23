@@ -51,7 +51,7 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
 
     const intervals: NodeJS.Timeout[] = [];
 
-    Object.entries(rpaTasks).forEach(([carrier, task]) => {
+    (Object.entries(rpaTasks) as [keyof typeof rpaTasks, RpaTaskStatus | undefined][]).forEach(([carrier, task]) => {
       if (!task) return;
 
       // Only simulate if task is queued or accepted (not completed/failed)
@@ -63,14 +63,18 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
         // Auto-progress to accepted after 2 seconds if still queued
         if (task.status === 'queued' && elapsed > 2000 && !task.accepted_at) {
           const acceptedTimeout = setTimeout(() => {
-            setRpaTasks(prev => ({
-              ...prev,
-              [carrier]: {
-                ...task,
-                status: 'accepted' as const,
-                accepted_at: new Date().toISOString(),
-              }
-            }));
+            setRpaTasks(prev => {
+              if (!prev) return prev;
+              const carrierKey = carrier as 'encova' | 'guard' | 'columbia';
+              return {
+                ...prev,
+                [carrierKey]: {
+                  ...task,
+                  status: 'accepted' as const,
+                  accepted_at: new Date().toISOString(),
+                }
+              };
+            });
           }, Math.max(0, 2000 - elapsed));
           intervals.push(acceptedTimeout);
         }
@@ -78,14 +82,20 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
         // Auto-progress to running after 5 seconds if accepted
         if (task.status === 'accepted' && elapsed > 5000 && !task.running_at) {
           const runningTimeout = setTimeout(() => {
-            setRpaTasks(prev => ({
-              ...prev,
-              [carrier]: {
-                ...prev?.[carrier],
-                status: 'running' as const,
-                running_at: new Date().toISOString(),
-              }
-            }));
+            setRpaTasks(prev => {
+              if (!prev) return prev;
+              const carrierKey = carrier as 'encova' | 'guard' | 'columbia';
+              const currentTask = prev[carrierKey];
+              return {
+                ...prev,
+                [carrierKey]: {
+                  ...currentTask,
+                  ...task,
+                  status: 'running' as const,
+                  running_at: new Date().toISOString(),
+                }
+              };
+            });
           }, Math.max(0, 5000 - elapsed));
           intervals.push(runningTimeout);
         }
