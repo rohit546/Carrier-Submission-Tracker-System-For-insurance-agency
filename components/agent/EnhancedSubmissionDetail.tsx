@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Submission, BusinessType, Carrier, CarrierQuote, InsuredInformation } from '@/lib/types';
 import InsuredInfoSection from './InsuredInfoSection';
 import AutoSubmitModal, { CarrierType } from './AutoSubmitModal';
+import RPAStatusDisplay from './RPAStatusDisplay';
 import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send, Rocket } from 'lucide-react';
 
 interface CarrierAppetiteDetail {
@@ -230,6 +231,17 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         setCarrierResults(result.results);
       }
 
+      // Update submission with new rpa_tasks if present
+      if (result.rpa_tasks) {
+        setSubmission(prev => ({
+          ...prev,
+          rpa_tasks: result.rpa_tasks
+        }));
+      }
+
+      // Refresh submission data to get latest rpa_tasks from database
+      await loadData();
+
       if (res.ok || res.status === 207) {
         // Build detailed message showing each carrier's status
         let message = result.message || 'Submission completed';
@@ -370,6 +382,15 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
             </button>
           </div>
         </div>
+      )}
+
+      {/* RPA Status Display - Shows real-time status for all carriers */}
+      {submission.rpa_tasks && Object.keys(submission.rpa_tasks).length > 0 && (
+        <RPAStatusDisplay 
+          submissionId={submission.id}
+          initialRpaTasks={submission.rpa_tasks}
+          key={submission.id} // Force re-render when submission changes
+        />
       )}
 
       {/* Insured Information Section - Show First */}

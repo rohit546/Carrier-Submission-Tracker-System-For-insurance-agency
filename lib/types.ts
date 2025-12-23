@@ -83,6 +83,25 @@ export interface Submission {
   source?: 'manual' | 'eform' | 'ghl';
   eformSubmissionId?: string;
   publicAccessToken?: string;
+  rpa_tasks?: {
+    encova?: RpaTaskStatus;
+    guard?: RpaTaskStatus;
+    columbia?: RpaTaskStatus;
+  };
+}
+
+export interface RpaTaskStatus {
+  task_id: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  submitted_at: string;
+  completed_at?: string;
+  result?: {
+    policy_code?: string;
+    quote_url?: string;
+    message?: string;
+  };
+  error?: string;
+  error_details?: string;
 }
 
 export interface CarrierQuote {

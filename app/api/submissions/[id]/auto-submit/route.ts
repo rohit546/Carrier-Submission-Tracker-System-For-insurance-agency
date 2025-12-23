@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSubmission, getInsuredInformation } from '@/lib/db/queries';
+import sql from '@/lib/db/connection';
 
 // Carrier types
 type CarrierType = 'encova' | 'guard' | 'columbia';
@@ -8,6 +9,12 @@ type CarrierType = 'encova' | 'guard' | 'columbia';
 const ENCOVA_WEBHOOK_URL = process.env.ENCOVA_WEBHOOK_URL || 'https://encova-submission-bot-rpa-production.up.railway.app/webhook';
 const GUARD_WEBHOOK_URL = process.env.GUARD_WEBHOOK_URL || 'https://guardsubmissionbot-production.up.railway.app/webhook';
 const COLUMBIA_WEBHOOK_URL = process.env.COLUMBIA_WEBHOOK_URL || 'https://columbia-submission-bot-production.up.railway.app/webhook';
+
+// Log webhook URLs on startup (for debugging)
+console.log('[AUTO-SUBMIT] Webhook URLs configured:');
+console.log(`  Encova: ${ENCOVA_WEBHOOK_URL}`);
+console.log(`  Guard: ${GUARD_WEBHOOK_URL}`);
+console.log(`  Columbia: ${COLUMBIA_WEBHOOK_URL}`);
 
 // Helper to parse address and extract components
 function parseAddress(address: string | null | undefined): { 
@@ -458,18 +465,26 @@ async function sendToCarrier(carrier: CarrierType, payload: any): Promise<{
     : COLUMBIA_WEBHOOK_URL;
   
   try {
-    console.log(`[AUTO-SUBMIT] Sending to ${carrier}:`, JSON.stringify(payload, null, 2));
+    console.log(`[AUTO-SUBMIT] Sending to ${carrier} at ${webhookUrl}`);
+    console.log(`[AUTO-SUBMIT] Payload:`, JSON.stringify(payload, null, 2));
+    
+    // Add timeout (30 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     const result = await response.json();
 
     if (!response.ok) {
-      console.error(`[AUTO-SUBMIT] ${carrier} error:`, result);
+      console.error(`[AUTO-SUBMIT] ${carrier} HTTP error (${response.status}):`, result);
       return {
         carrier,
         success: false,
@@ -485,10 +500,21 @@ async function sendToCarrier(carrier: CarrierType, payload: any): Promise<{
     };
   } catch (error: any) {
     console.error(`[AUTO-SUBMIT] ${carrier} exception:`, error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Network error';
+    if (error.name === 'AbortError') {
+      errorMessage = 'Request timeout - the webhook took too long to respond';
+    } else if (error.code === 'EAI_AGAIN' || error.cause?.code === 'EAI_AGAIN') {
+      errorMessage = `DNS lookup failed - cannot reach ${webhookUrl}. Check if the service is running and the URL is correct.`;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
     return {
       carrier,
       success: false,
-      error: error.message || 'Network error',
+      error: errorMessage,
     };
   }
 }
@@ -674,10 +700,39 @@ export async function POST(
     // Wait for all requests to complete
     const results = await Promise.all(promises);
 
+    // Get current rpa_tasks or initialize empty object
+    const currentSubmission = await getSubmission(submissionId);
+    const currentRpaTasks = (currentSubmission as any)?.rpa_tasks || {};
+    
+    // Update rpa_tasks with initial status for successful submissions
+    const updatedRpaTasks: any = { ...currentRpaTasks };
+    const now = new Date().toISOString();
+    
+    for (const result of results) {
+      if (result.success && result.data?.task_id) {
+        updatedRpaTasks[result.carrier] = {
+          task_id: result.data.task_id,
+          status: 'queued', // Initial status
+          submitted_at: now,
+        };
+      }
+    }
+    
+    // Save initial status to database
+    if (Object.keys(updatedRpaTasks).length > 0) {
+      await sql`
+        UPDATE submissions
+        SET rpa_tasks = ${JSON.stringify(updatedRpaTasks)}::jsonb,
+            updated_at = NOW()
+        WHERE id = ${submissionId}
+      `;
+    }
+
     // Build response
     const response: any = {
       success: results.every(r => r.success),
       results: {},
+      rpa_tasks: updatedRpaTasks,
     };
 
     for (const result of results) {

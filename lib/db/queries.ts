@@ -223,6 +223,7 @@ export async function getSubmissions(): Promise<Submission[]> {
       s.source,
       s.eform_submission_id,
       s.public_access_token,
+      s.rpa_tasks,
       COALESCE(
         json_agg(
           json_build_object(
@@ -237,7 +238,7 @@ export async function getSubmissions(): Promise<Submission[]> {
       ) as carriers
     FROM submissions s
     LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
-    GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token
+    GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token, s.rpa_tasks
     ORDER BY s.created_at DESC
   `;
   return rows.map(row => {
@@ -250,6 +251,18 @@ export async function getSubmissions(): Promise<Submission[]> {
           : row.insured_info_snapshot;
       } catch (e) {
         console.error('Error parsing insured_info_snapshot:', e);
+      }
+    }
+    
+    // Parse rpa_tasks if it exists
+    let rpaTasks = null;
+    if (row.rpa_tasks) {
+      try {
+        rpaTasks = typeof row.rpa_tasks === 'string' 
+          ? JSON.parse(row.rpa_tasks)
+          : row.rpa_tasks;
+      } catch (e) {
+        console.error('Error parsing rpa_tasks:', e);
       }
     }
     
@@ -267,6 +280,7 @@ export async function getSubmissions(): Promise<Submission[]> {
       source: row.source as 'manual' | 'eform' | 'ghl' | undefined,
       eformSubmissionId: row.eform_submission_id,
       publicAccessToken: row.public_access_token,
+      rpa_tasks: rpaTasks,
     };
   });
 }
@@ -290,6 +304,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
         s.source,
         s.eform_submission_id,
         s.public_access_token,
+        s.rpa_tasks,
         COALESCE(
           json_agg(
             json_build_object(
@@ -305,7 +320,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
       FROM submissions s
       LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
       WHERE s.id = ${id} AND s.public_access_token = ${publicToken}
-      GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token
+      GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token, s.rpa_tasks
     `;
   } else {
     query = sql`
@@ -322,6 +337,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
         s.source,
         s.eform_submission_id,
         s.public_access_token,
+        s.rpa_tasks,
         COALESCE(
           json_agg(
             json_build_object(
@@ -337,7 +353,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
       FROM submissions s
       LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
       WHERE s.id = ${id}
-      GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token
+      GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token, s.rpa_tasks
     `;
   }
   
@@ -357,6 +373,18 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
     }
   }
   
+  // Parse rpa_tasks if it exists
+  let rpaTasks = null;
+  if (row.rpa_tasks) {
+    try {
+      rpaTasks = typeof row.rpa_tasks === 'string' 
+        ? JSON.parse(row.rpa_tasks)
+        : row.rpa_tasks;
+    } catch (e) {
+      console.error('Error parsing rpa_tasks:', e);
+    }
+  }
+  
   return {
     id: row.id,
     businessName: row.business_name,
@@ -371,6 +399,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
     source: row.source as 'manual' | 'eform' | 'ghl' | undefined,
     eformSubmissionId: row.eform_submission_id,
     publicAccessToken: row.public_access_token,
+    rpa_tasks: rpaTasks,
   };
 }
 
