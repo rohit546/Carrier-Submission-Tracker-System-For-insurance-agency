@@ -24,7 +24,7 @@ export default function RPAStatusDisplay({ submissionId, initialRpaTasks }: RPAS
   const hasActiveTasks = () => {
     if (!rpaTasks) return false;
     return Object.values(rpaTasks).some(
-      task => task?.status === 'queued' || task?.status === 'processing'
+      task => task?.status === 'queued' || task?.status === 'accepted' || task?.status === 'running'
     );
   };
 
@@ -131,11 +131,18 @@ export default function RPAStatusDisplay({ submissionId, initialRpaTasks }: RPAS
             Queued
           </span>
         );
-      case 'processing':
+      case 'accepted':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700 border border-blue-300">
+            <CheckCircle className="w-3 h-3" />
+            Accepted
+          </span>
+        );
+      case 'running':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-300">
             <Loader2 className="w-3 h-3 animate-spin" />
-            Processing...
+            Running
           </span>
         );
       case 'completed':
@@ -217,18 +224,40 @@ export default function RPAStatusDisplay({ submissionId, initialRpaTasks }: RPAS
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2 text-gray-600">
                   <Clock className="w-3 h-3" />
-                  <span>Started: {formatTime(status.submitted_at)}</span>
-                  {status.status === 'processing' && (
-                    <span className="text-gray-500">
-                      • Elapsed: {formatElapsedTime(status.submitted_at)}
-                    </span>
-                  )}
+                  <span>Submitted: {formatTime(status.submitted_at)}</span>
                 </div>
 
-                {status.completed_at && (
-                  <div className="flex items-center gap-2 text-gray-600">
+                {status.accepted_at && (
+                  <div className="flex items-center gap-2 text-blue-600">
                     <CheckCircle className="w-3 h-3" />
-                    <span>Completed: {formatTime(status.completed_at)}</span>
+                    <span>Accepted: {formatTime(status.accepted_at)}</span>
+                    <span className="text-gray-500 text-xs">
+                      ({formatElapsedTime(status.submitted_at, status.accepted_at)} later)
+                    </span>
+                  </div>
+                )}
+
+                {status.running_at && (
+                  <div className="flex items-center gap-2 text-yellow-600">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Running: {formatTime(status.running_at)}</span>
+                    {status.status === 'running' && (
+                      <span className="text-gray-500 text-xs">
+                        (Elapsed: {formatElapsedTime(status.running_at)})
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {status.completed_at && (
+                  <div className={`flex items-center gap-2 ${status.status === 'completed' ? 'text-green-600' : 'text-red-600'}`}>
+                    <CheckCircle className="w-3 h-3" />
+                    <span>{status.status === 'completed' ? 'Completed' : 'Failed'}: {formatTime(status.completed_at)}</span>
+                    {status.running_at && (
+                      <span className="text-gray-500 text-xs">
+                        ({formatElapsedTime(status.running_at, status.completed_at)} processing)
+                      </span>
+                    )}
                   </div>
                 )}
 

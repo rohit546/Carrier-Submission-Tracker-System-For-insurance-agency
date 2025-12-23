@@ -24,10 +24,13 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     const { carrier, task_id, submission_id, status, completed_at } = body;
     
-    if (!carrier || !task_id || !submission_id || !status || !completed_at) {
+    // completed_at is only required for final statuses (completed/failed)
+    const requiresCompletedAt = status === 'completed' || status === 'failed';
+    
+    if (!carrier || !task_id || !submission_id || !status || (requiresCompletedAt && !completed_at)) {
       console.error('[WEBHOOK] Validation failed - missing required fields');
       return NextResponse.json(
-        { error: 'Missing required fields: carrier, task_id, submission_id, status, completed_at' },
+        { error: `Missing required fields: carrier, task_id, submission_id, status${requiresCompletedAt ? ', completed_at' : ''}` },
         { 
           status: 400,
           headers: {
@@ -47,10 +50,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate status
-    if (!['completed', 'failed'].includes(status)) {
+    // Validate status - allow all status transitions
+    if (!['queued', 'accepted', 'running', 'completed', 'failed'].includes(status)) {
       return NextResponse.json(
-        { error: 'Invalid status. Must be: completed or failed' },
+        { error: 'Invalid status. Must be: queued, accepted, running, completed, or failed' },
         { status: 400 }
       );
     }
@@ -66,15 +69,19 @@ export async function POST(request: NextRequest) {
 
     // Get current rpa_tasks or initialize empty object
     const currentRpaTasks = (submission as any).rpa_tasks || {};
+    const currentTask = currentRpaTasks[carrier] || {};
+    const now = completed_at || new Date().toISOString();
     
-    // Update the specific carrier's status
+    // Update the specific carrier's status with proper timestamps
     const updatedRpaTasks = {
       ...currentRpaTasks,
       [carrier]: {
         task_id,
         status,
-        completed_at,
-        submitted_at: currentRpaTasks[carrier]?.submitted_at || completed_at,
+        submitted_at: currentTask.submitted_at || now,
+        accepted_at: status === 'accepted' ? now : (currentTask.accepted_at || null),
+        running_at: status === 'running' ? now : (currentTask.running_at || null),
+        completed_at: (status === 'completed' || status === 'failed') ? now : (currentTask.completed_at || null),
         ...(status === 'completed' && body.result ? {
           result: {
             policy_code: body.result.policy_code || null,

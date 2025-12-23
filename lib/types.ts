@@ -92,8 +92,10 @@ export interface Submission {
 
 export interface RpaTaskStatus {
   task_id: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
+  status: 'queued' | 'accepted' | 'running' | 'completed' | 'failed';
   submitted_at: string;
+  accepted_at?: string;
+  running_at?: string;
   completed_at?: string;
   result?: {
     policy_code?: string;

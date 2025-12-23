@@ -7,7 +7,8 @@ import { Submission, BusinessType, Carrier, CarrierQuote, InsuredInformation } f
 import InsuredInfoSection from './InsuredInfoSection';
 import AutoSubmitModal, { CarrierType } from './AutoSubmitModal';
 import RPAStatusDisplay from './RPAStatusDisplay';
-import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send, Rocket } from 'lucide-react';
+import AutomationStatusModal from './AutomationStatusModal';
+import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send, Rocket, Activity } from 'lucide-react';
 
 interface CarrierAppetiteDetail {
   id: string;
@@ -210,6 +211,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   }
 
   const [showAutoSubmitModal, setShowAutoSubmitModal] = useState(false);
+  const [showAutomationStatusModal, setShowAutomationStatusModal] = useState(false);
   const [carrierResults, setCarrierResults] = useState<{ [key: string]: any } | null>(null);
 
   async function handleAutoSubmit(selectedCarriers: CarrierType[]) {
@@ -328,6 +330,14 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
           <p className="text-gray-600">{getBusinessTypeName()}</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowAutomationStatusModal(true)}
+            className="btn-secondary text-sm flex items-center gap-2"
+            title="View automation status"
+          >
+            <Activity className="w-4 h-4" />
+            Automation Status
+          </button>
           <button
             onClick={() => setShowAutoSubmitModal(true)}
             disabled={submitting || !insuredInfo}
@@ -691,6 +701,14 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         onConfirm={handleAutoSubmit}
         insuredInfo={insuredInfo}
         submitting={submitting}
+      />
+
+      {/* Automation Status Modal */}
+      <AutomationStatusModal
+        isOpen={showAutomationStatusModal}
+        onClose={() => setShowAutomationStatusModal(false)}
+        submissionId={submission.id}
+        initialRpaTasks={submission.rpa_tasks}
       />
     </div>
   );
