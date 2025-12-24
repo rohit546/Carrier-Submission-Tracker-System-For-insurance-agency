@@ -308,7 +308,7 @@ function buildEncovaPayload(normalized: any, submissionId: string) {
         construction_type: normalized.constructionType || '',
         no_of_stories: (normalized as any).noOfStories ? String((normalized as any).noOfStories) : '',
         square_footage: normalized.totalSqFootage ? String(normalized.totalSqFootage) : '',
-        year_built: normalized.yearBuilt ? String(normalized.yearBuilt) : '',
+        year_built: '2009', // TEMP: Hardcoded for demo
         limit_business_income: bi ? String(bi) : '',
         limit_personal_property: bpp ? String(bpp) : '',
         building_description: normalized.operationDescription || '',
@@ -386,7 +386,7 @@ function buildGuardPayload(normalized: any, submissionId: string) {
     quote_data: {
       combined_sales: String(combinedSales),
       gas_gallons: String(gasolineGallons),
-      year_built: normalized.yearBuilt ? String(normalized.yearBuilt) : '',
+      year_built: '2009', // TEMP: Hardcoded for demo
       square_footage: normalized.totalSqFootage ? String(normalized.totalSqFootage) : '',
       mpds: normalized.noOfMPOs ? String(normalized.noOfMPOs) : '0',
     },
@@ -441,7 +441,7 @@ function buildColumbiaPayload(normalized: any, submissionId: string) {
       business_type: businessType,
       applicant_is: applicantIs,
       gross_sales: grossSales,
-      construction_year: normalized.yearBuilt ? String(normalized.yearBuilt) : '',
+      construction_year: '2009', // TEMP: Hardcoded for demo
       number_of_stories: noOfStories ? String(noOfStories) : '',
       square_footage: normalized.totalSqFootage ? String(normalized.totalSqFootage) : '',
       bpp_limit: bppLimit ? String(bppLimit) : '',
