@@ -386,16 +386,23 @@ const SENDER_EMAILS = [
   'sana@mckinneyandco.com',
 ];
 
-// Available underwriter emails (Non-standard carriers)
-const UNDERWRITER_EMAILS = [
-  'submissions@amtrust.com',
-  'quotes@progressive.com',
-  'newbusiness@travelers.com',
-  'underwriting@nationwide.com',
-  'quotes@libertymutual.com',
-  'submissions@cna.com',
-  'underwriting@thehartford.com',
-  'newbusiness@zurich.com',
+// Available underwriter emails (Non-standard carriers) with company names
+const UNDERWRITER_OPTIONS = [
+  { email: 'matthew.cummins@towerstonecorp.com', company: 'Tower Stone' },
+  { email: 'mrein@bassuw.com', company: 'Bass (GA)' },
+  { email: 'jrios@bassuw.com', company: 'Bass (TX)' },
+  { email: 'tom.oconnell@rtspecialty.com', company: 'RTS' },
+  { email: 'tyler.hickman@rtspecialty.com', company: 'RTS' },
+  { email: 'Dorian.Lane@teamfocusins.com', company: 'Burns & Wilcox' },
+  { email: 'Jessica_EscobarDiaz@rpsins.com', company: 'RPS' },
+  { email: 'amanders@breckis.com', company: 'Breckenridge' },
+  { email: 'rhonda.henze@appund.com', company: 'Appalachian' },
+  { email: 'brittany.welsh@amwins.com', company: 'Amwins' },
+  { email: 'cyoung@crcgroup.com', company: 'CRC SUI' },
+  { email: 'aabbas@ega-ins.com', company: 'Seneca' },
+  { email: 'ckok@ega-ins.com', company: 'Seneca' },
+  { email: 'smalinoski@jencapgroup.com', company: 'Jencap' },
+  { email: 'christina.hunter@jencapgroup.com', company: 'Jencap' },
 ];
 
 export default function AutoSubmitModal({
@@ -422,6 +429,15 @@ export default function AutoSubmitModal({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailResult, setEmailResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [emailHistory, setEmailHistory] = useState<{
+    sentAt: string;
+    from: string;
+    to: string[];
+    cc?: string;
+    subject: string;
+    attachments: string[];
+    results: { email: string; company: string; success: boolean }[];
+  }[]>([]);
 
   const normalizedInfo = normalizeInsuredInfo(insuredInfo);
 
@@ -727,6 +743,23 @@ McKinney & Co`);
           success: true, 
           message: `✅ ${data.message}` 
         });
+        
+        // Save to email history
+        const historyEntry = {
+          sentAt: new Date().toISOString(),
+          from: fromEmail,
+          to: selectedUnderwriters,
+          cc: ccEmail.trim() || undefined,
+          subject: emailSubject,
+          attachments: attachedFiles.map(f => f.name),
+          results: data.results.map((r: any) => ({
+            email: r.email,
+            company: UNDERWRITER_OPTIONS.find(u => u.email === r.email)?.company || 'Custom',
+            success: r.success,
+          })),
+        };
+        setEmailHistory(prev => [historyEntry, ...prev]);
+        
         // Clear form after success
         setSelectedUnderwriters([]);
         setAttachedFiles([]);
@@ -1009,21 +1042,25 @@ McKinney & Co`);
                     {/* Selected underwriters as tags */}
                     {selectedUnderwriters.length > 0 && (
                       <div className="flex flex-wrap gap-2">
-                        {selectedUnderwriters.map(email => (
-                          <span 
-                            key={email} 
-                            className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full text-xs"
-                          >
-                            {email}
-                            <button
-                              type="button"
-                              onClick={() => setSelectedUnderwriters(prev => prev.filter(e => e !== email))}
-                              className="hover:text-emerald-600"
+                        {selectedUnderwriters.map(email => {
+                          const underwriter = UNDERWRITER_OPTIONS.find(u => u.email === email);
+                          return (
+                            <span 
+                              key={email} 
+                              className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full text-xs"
                             >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </span>
-                        ))}
+                              <span className="font-medium">{underwriter?.company || 'Custom'}</span>
+                              <span className="text-emerald-600">({email})</span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedUnderwriters(prev => prev.filter(e => e !== email))}
+                                className="hover:text-emerald-600 ml-1"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          );
+                        })}
                       </div>
                     )}
                     
@@ -1037,9 +1074,11 @@ McKinney & Co`);
                       }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     >
-                      <option value="">Select underwriter email...</option>
-                      {UNDERWRITER_EMAILS.filter(e => !selectedUnderwriters.includes(e)).map(email => (
-                        <option key={email} value={email}>{email}</option>
+                      <option value="">Select underwriter...</option>
+                      {UNDERWRITER_OPTIONS.filter(u => !selectedUnderwriters.includes(u.email)).map(u => (
+                        <option key={u.email} value={u.email}>
+                          {u.company} - {u.email}
+                        </option>
                       ))}
                     </select>
 
@@ -1195,6 +1234,49 @@ McKinney & Co`);
                   Email will be sent to {selectedUnderwriters.length} recipient{selectedUnderwriters.length !== 1 ? 's' : ''}
                   {attachedFiles.length > 0 && ` with ${attachedFiles.length} attachment${attachedFiles.length !== 1 ? 's' : ''}`}
                 </p>
+
+                {/* Email History */}
+                {emailHistory.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-emerald-200">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      Sent Emails ({emailHistory.length})
+                    </h4>
+                    <div className="space-y-3 max-h-48 overflow-y-auto">
+                      {emailHistory.map((entry, idx) => (
+                        <div key={idx} className="bg-white border border-gray-200 rounded-lg p-3 text-xs">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-gray-800">{entry.subject}</span>
+                            <span className="text-gray-400">
+                              {new Date(entry.sentAt).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <div className="space-y-1 text-gray-600">
+                            <p><span className="font-medium">From:</span> {entry.from}</p>
+                            {entry.cc && <p><span className="font-medium">CC:</span> {entry.cc}</p>}
+                            {entry.attachments.length > 0 && (
+                              <p><span className="font-medium">Files:</span> {entry.attachments.join(', ')}</p>
+                            )}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {entry.results.map((r, i) => (
+                              <span 
+                                key={i}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
+                                  r.success 
+                                    ? 'bg-green-100 text-green-700' 
+                                    : 'bg-red-100 text-red-700'
+                                }`}
+                              >
+                                {r.success ? '✓' : '✗'} {r.company}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
