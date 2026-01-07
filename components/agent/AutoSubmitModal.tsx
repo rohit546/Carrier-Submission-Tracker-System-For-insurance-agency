@@ -454,13 +454,14 @@ export default function AutoSubmitModal({
         setSelectedCarriers(prev => prev.filter(c => c !== 'encova'));
       }
 
-      // Auto-populate email subject and body for non-standard market
+      // Auto-populate email subject and body for non-standard market (only if empty)
       const llcName = normalizedInfo.corporationName || 'Business Name';
       const description = normalizedInfo.operationDescription || 'convenience store';
       const hours = normalizedInfo.hoursOfOperation || '24 hours';
       
-      setEmailSubject(`Quote Request / ${llcName}`);
-      setEmailBody(`Hi,
+      // Only set if empty (preserve user edits)
+      setEmailSubject(prev => prev || `Quote Request / ${llcName}`);
+      setEmailBody(prev => prev || `Hi,
 
 I hope this email finds you well.
 
