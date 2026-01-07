@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { InsuredInformation } from '@/lib/types';
-import { X, CheckCircle, AlertCircle, Rocket, Building2, Shield } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Rocket, Building2, Shield, Mail, Paperclip, ChevronDown, ChevronUp } from 'lucide-react';
 
 // Carrier types
 export type CarrierType = 'encova' | 'guard' | 'columbia';
@@ -373,6 +373,23 @@ function normalizeInsuredInfo(data: any): InsuredInformation | null {
   };
 }
 
+// Available sender emails
+const SENDER_EMAILS = [
+  'info@mckinneyandco.com',
+  'quotes@mckinneyandco.com',
+  'submissions@mckinneyandco.com',
+];
+
+// Available underwriter emails
+const UNDERWRITER_EMAILS = [
+  'underwriter1@carrier.com',
+  'underwriter2@carrier.com',
+  'submissions@amtrust.com',
+  'quotes@progressive.com',
+  'newbusiness@travelers.com',
+  'underwriting@nationwide.com',
+];
+
 export default function AutoSubmitModal({
   isOpen,
   onClose,
@@ -385,6 +402,15 @@ export default function AutoSubmitModal({
   const [guardErrors, setGuardErrors] = useState<string[]>([]);
   const [columbiaErrors, setColumbiaErrors] = useState<string[]>([]);
   const [completeness, setCompleteness] = useState(0);
+
+  // Non-Standard Market state
+  const [showNonStandard, setShowNonStandard] = useState(false);
+  const [fromEmail, setFromEmail] = useState(SENDER_EMAILS[0]);
+  const [selectedUnderwriters, setSelectedUnderwriters] = useState<string[]>([]);
+  const [customUnderwriter, setCustomUnderwriter] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
   const normalizedInfo = normalizeInsuredInfo(insuredInfo);
 
@@ -400,6 +426,23 @@ export default function AutoSubmitModal({
       if (isTexas && selectedCarriers.includes('encova')) {
         setSelectedCarriers(prev => prev.filter(c => c !== 'encova'));
       }
+
+      // Auto-populate email subject and body for non-standard market
+      const llcName = normalizedInfo.corporationName || 'Business Name';
+      const description = normalizedInfo.operationDescription || 'convenience store';
+      const hours = normalizedInfo.hoursOfOperation || '24 hours';
+      
+      setEmailSubject(`Quote Request / ${llcName}`);
+      setEmailBody(`Hi,
+
+I hope this email finds you well.
+
+Kindly provide quote for ${llcName}. It's a ${description} with ${hours} operation.
+
+Property and GL accords are attached.
+
+Thank you,
+McKinney & Co`);
     }
   }, [isOpen, normalizedInfo, isTexas]);
 
@@ -818,6 +861,207 @@ export default function AutoSubmitModal({
                 </div>
               </label>
             </div>
+          </div>
+
+          {/* Non-Standard Market Section */}
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg overflow-hidden">
+            {/* Section Header - Collapsible */}
+            <button
+              type="button"
+              onClick={() => setShowNonStandard(!showNonStandard)}
+              className="w-full px-4 py-3 flex items-center justify-between hover:bg-emerald-100/50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Mail className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-lg font-semibold text-black">Non-Standard Market</h3>
+                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Email Submission</span>
+              </div>
+              {showNonStandard ? (
+                <ChevronUp className="w-5 h-5 text-gray-500" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-500" />
+              )}
+            </button>
+
+            {/* Collapsible Content */}
+            {showNonStandard && (
+              <div className="px-4 pb-4 space-y-4 border-t border-emerald-200">
+                <p className="text-sm text-gray-600 mt-3">
+                  Send quote requests via email to non-standard carriers with attached accords.
+                </p>
+
+                {/* From Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    From (Sender Email) *
+                  </label>
+                  <select
+                    value={fromEmail}
+                    onChange={(e) => setFromEmail(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  >
+                    {SENDER_EMAILS.map(email => (
+                      <option key={email} value={email}>{email}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* To Emails (Underwriters) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    To (Underwriter Emails) *
+                  </label>
+                  <div className="space-y-2">
+                    {/* Selected underwriters as tags */}
+                    {selectedUnderwriters.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedUnderwriters.map(email => (
+                          <span 
+                            key={email} 
+                            className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full text-xs"
+                          >
+                            {email}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedUnderwriters(prev => prev.filter(e => e !== email))}
+                              className="hover:text-emerald-600"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Dropdown to add more */}
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value && !selectedUnderwriters.includes(e.target.value)) {
+                          setSelectedUnderwriters(prev => [...prev, e.target.value]);
+                        }
+                      }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    >
+                      <option value="">Select underwriter email...</option>
+                      {UNDERWRITER_EMAILS.filter(e => !selectedUnderwriters.includes(e)).map(email => (
+                        <option key={email} value={email}>{email}</option>
+                      ))}
+                    </select>
+
+                    {/* Custom email input */}
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        value={customUnderwriter}
+                        onChange={(e) => setCustomUnderwriter(e.target.value)}
+                        placeholder="Add custom email..."
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (customUnderwriter && customUnderwriter.includes('@') && !selectedUnderwriters.includes(customUnderwriter)) {
+                            setSelectedUnderwriters(prev => [...prev, customUnderwriter]);
+                            setCustomUnderwriter('');
+                          }
+                        }}
+                        className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 transition-colors"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subject */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Subject *
+                  </label>
+                  <input
+                    type="text"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+
+                {/* Body */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Body *
+                  </label>
+                  <textarea
+                    value={emailBody}
+                    onChange={(e) => setEmailBody(e.target.value)}
+                    rows={6}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                  />
+                </div>
+
+                {/* File Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Attachments (Accord PDFs, etc.)
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-400 transition-colors">
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          setAttachedFiles(prev => [...prev, ...Array.from(e.target.files || [])]);
+                        }
+                      }}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label 
+                      htmlFor="file-upload" 
+                      className="flex flex-col items-center cursor-pointer"
+                    >
+                      <Paperclip className="w-8 h-8 text-gray-400 mb-2" />
+                      <span className="text-sm text-gray-600">Click to upload files</span>
+                      <span className="text-xs text-gray-400 mt-1">PDF, DOC, XLS supported</span>
+                    </label>
+                  </div>
+
+                  {/* Attached files list */}
+                  {attachedFiles.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {attachedFiles.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Paperclip className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm text-gray-700">{file.name}</span>
+                            <span className="text-xs text-gray-400">({(file.size / 1024).toFixed(1)} KB)</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Send Email Button */}
+                <button
+                  type="button"
+                  disabled={selectedUnderwriters.length === 0 || !emailSubject.trim() || !emailBody.trim()}
+                  className="w-full bg-emerald-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Mail className="w-4 h-4" />
+                  Send Quote Request Email
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Validation Errors */}
