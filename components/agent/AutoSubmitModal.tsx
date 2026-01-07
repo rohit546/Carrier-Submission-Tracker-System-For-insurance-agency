@@ -373,21 +373,29 @@ function normalizeInsuredInfo(data: any): InsuredInformation | null {
   };
 }
 
-// Available sender emails
+// Available sender emails (McKinney & Co)
 const SENDER_EMAILS = [
-  'info@mckinneyandco.com',
-  'quotes@mckinneyandco.com',
-  'submissions@mckinneyandco.com',
+  'amber@mckinneyandco.com',
+  'zara@mckinneyandco.com',
+  'ana@mckinneyandco.com',
+  'tej@mckinneyandco.com',
+  'razia@mckinneyandco.com',
+  'shahnaz@mckinneyandco.com',
+  'munira@mckinneyandco.com',
+  'raabel@mckinneyandco.com',
+  'sana@mckinneyandco.com',
 ];
 
-// Available underwriter emails
+// Available underwriter emails (Non-standard carriers)
 const UNDERWRITER_EMAILS = [
-  'underwriter1@carrier.com',
-  'underwriter2@carrier.com',
   'submissions@amtrust.com',
   'quotes@progressive.com',
   'newbusiness@travelers.com',
   'underwriting@nationwide.com',
+  'quotes@libertymutual.com',
+  'submissions@cna.com',
+  'underwriting@thehartford.com',
+  'newbusiness@zurich.com',
 ];
 
 export default function AutoSubmitModal({
@@ -408,9 +416,12 @@ export default function AutoSubmitModal({
   const [fromEmail, setFromEmail] = useState(SENDER_EMAILS[0]);
   const [selectedUnderwriters, setSelectedUnderwriters] = useState<string[]>([]);
   const [customUnderwriter, setCustomUnderwriter] = useState('');
+  const [ccEmail, setCcEmail] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailResult, setEmailResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const normalizedInfo = normalizeInsuredInfo(insuredInfo);
 
@@ -651,6 +662,89 @@ McKinney & Co`);
       }
       return [...prev, carrier];
     });
+  };
+
+  // Convert File to Base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        // Remove the "data:application/pdf;base64," prefix
+        const base64 = (reader.result as string).split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // Send quote request email
+  const handleSendEmail = async () => {
+    if (selectedUnderwriters.length === 0) {
+      setEmailResult({ success: false, message: 'Please select at least one underwriter email' });
+      return;
+    }
+    if (!emailSubject.trim()) {
+      setEmailResult({ success: false, message: 'Please enter an email subject' });
+      return;
+    }
+    if (!emailBody.trim()) {
+      setEmailResult({ success: false, message: 'Please enter an email body' });
+      return;
+    }
+
+    setSendingEmail(true);
+    setEmailResult(null);
+
+    try {
+      // Convert attached files to base64
+      const pdfs = await Promise.all(
+        attachedFiles.map(async (file) => ({
+          filename: file.name,
+          data: await fileToBase64(file),
+        }))
+      );
+
+      const payload = {
+        fromEmail,
+        toEmails: selectedUnderwriters,
+        ccEmail: ccEmail.trim() || undefined,
+        subject: emailSubject,
+        body: emailBody,
+        pdfs: pdfs.length > 0 ? pdfs : undefined,
+      };
+
+      const response = await fetch('/api/send-quote-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setEmailResult({ 
+          success: true, 
+          message: `✅ ${data.message}` 
+        });
+        // Clear form after success
+        setSelectedUnderwriters([]);
+        setAttachedFiles([]);
+        setCcEmail('');
+      } else {
+        setEmailResult({ 
+          success: false, 
+          message: `❌ ${data.error || data.message || 'Failed to send emails'}` 
+        });
+      }
+    } catch (error: any) {
+      setEmailResult({ 
+        success: false, 
+        message: `❌ Error: ${error.message}` 
+      });
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -974,6 +1068,20 @@ McKinney & Co`);
                   </div>
                 </div>
 
+                {/* CC Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    CC (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    value={ccEmail}
+                    onChange={(e) => setCcEmail(e.target.value)}
+                    placeholder="cc@example.com"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+
                 {/* Subject */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1051,15 +1159,42 @@ McKinney & Co`);
                   )}
                 </div>
 
+                {/* Email Result Message */}
+                {emailResult && (
+                  <div className={`p-3 rounded-lg text-sm ${
+                    emailResult.success 
+                      ? 'bg-green-50 border border-green-200 text-green-800' 
+                      : 'bg-red-50 border border-red-200 text-red-800'
+                  }`}>
+                    {emailResult.message}
+                  </div>
+                )}
+
                 {/* Send Email Button */}
                 <button
                   type="button"
-                  disabled={selectedUnderwriters.length === 0 || !emailSubject.trim() || !emailBody.trim()}
+                  onClick={handleSendEmail}
+                  disabled={sendingEmail || selectedUnderwriters.length === 0 || !emailSubject.trim() || !emailBody.trim()}
                   className="w-full bg-emerald-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  <Mail className="w-4 h-4" />
-                  Send Quote Request Email
+                  {sendingEmail ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      Send Quote Request Email
+                    </>
+                  )}
                 </button>
+
+                {/* Info text */}
+                <p className="text-xs text-gray-500 text-center">
+                  Email will be sent to {selectedUnderwriters.length} recipient{selectedUnderwriters.length !== 1 ? 's' : ''}
+                  {attachedFiles.length > 0 && ` with ${attachedFiles.length} attachment${attachedFiles.length !== 1 ? 's' : ''}`}
+                </p>
               </div>
             )}
           </div>
