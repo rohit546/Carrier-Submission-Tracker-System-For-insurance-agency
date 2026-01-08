@@ -423,7 +423,8 @@ export default function AutoSubmitModal({
   const [fromEmail, setFromEmail] = useState(SENDER_EMAILS[0]);
   const [selectedUnderwriters, setSelectedUnderwriters] = useState<string[]>([]);
   const [customUnderwriter, setCustomUnderwriter] = useState('');
-  const [ccEmail, setCcEmail] = useState('');
+  const [ccEmails, setCcEmails] = useState<string[]>([]);
+  const [customCcEmail, setCustomCcEmail] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -725,7 +726,7 @@ McKinney & Co`);
       const payload = {
         fromEmail,
         toEmails: selectedUnderwriters,
-        ccEmail: ccEmail.trim() || undefined,
+        ccEmails: ccEmails.length > 0 ? ccEmails : undefined,
         subject: emailSubject,
         body: emailBody,
         pdfs: pdfs.length > 0 ? pdfs : undefined,
@@ -750,7 +751,7 @@ McKinney & Co`);
           sentAt: new Date().toISOString(),
           from: fromEmail,
           to: selectedUnderwriters,
-          cc: ccEmail.trim() || undefined,
+          cc: ccEmails.length > 0 ? ccEmails.join(', ') : undefined,
           subject: emailSubject,
           attachments: attachedFiles.map(f => f.name),
           results: data.results.map((r: any) => ({
@@ -764,7 +765,7 @@ McKinney & Co`);
         // Clear form after success
         setSelectedUnderwriters([]);
         setAttachedFiles([]);
-        setCcEmail('');
+        setCcEmails([]);
       } else {
         setEmailResult({ 
           success: false, 
@@ -1108,18 +1109,63 @@ McKinney & Co`);
                   </div>
                 </div>
 
-                {/* CC Email */}
+                {/* CC Emails (Multiple) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    CC (Optional)
+                    CC (Optional - Multiple)
                   </label>
-                  <input
-                    type="email"
-                    value={ccEmail}
-                    onChange={(e) => setCcEmail(e.target.value)}
-                    placeholder="cc@example.com"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  />
+                  <div className="space-y-2">
+                    {/* Selected CC emails as tags */}
+                    {ccEmails.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {ccEmails.map(email => (
+                          <span 
+                            key={email} 
+                            className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs"
+                          >
+                            {email}
+                            <button
+                              type="button"
+                              onClick={() => setCcEmails(prev => prev.filter(e => e !== email))}
+                              className="hover:text-gray-500"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Add CC email input */}
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        value={customCcEmail}
+                        onChange={(e) => setCustomCcEmail(e.target.value)}
+                        placeholder="Add CC email..."
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && customCcEmail && customCcEmail.includes('@') && !ccEmails.includes(customCcEmail)) {
+                            e.preventDefault();
+                            setCcEmails(prev => [...prev, customCcEmail]);
+                            setCustomCcEmail('');
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (customCcEmail && customCcEmail.includes('@') && !ccEmails.includes(customCcEmail)) {
+                            setCcEmails(prev => [...prev, customCcEmail]);
+                            setCustomCcEmail('');
+                          }
+                        }}
+                        className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Subject */}

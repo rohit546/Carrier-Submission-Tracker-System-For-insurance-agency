@@ -11,7 +11,8 @@ interface PdfAttachment {
 interface SendEmailRequest {
   fromEmail: string;
   toEmails: string[];
-  ccEmail?: string;
+  ccEmails?: string[];
+  bccEmails?: string[];
   subject: string;
   body: string;
   pdfs?: PdfAttachment[];
@@ -20,7 +21,7 @@ interface SendEmailRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: SendEmailRequest = await request.json();
-    const { fromEmail, toEmails, ccEmail, subject, body: emailBody, pdfs } = body;
+    const { fromEmail, toEmails, ccEmails, bccEmails, subject, body: emailBody, pdfs } = body;
 
     // Validation
     if (!fromEmail || !toEmails || toEmails.length === 0 || !subject || !emailBody) {
@@ -52,9 +53,14 @@ export async function POST(request: NextRequest) {
           body: emailBody,
         };
 
-        // Add CC if provided
-        if (ccEmail && ccEmail.trim()) {
-          payload.cc_email = ccEmail;
+        // Add CC if provided (array format)
+        if (ccEmails && ccEmails.length > 0) {
+          payload.cc = ccEmails;
+        }
+
+        // Add BCC if provided (array format)
+        if (bccEmails && bccEmails.length > 0) {
+          payload.bcc = bccEmails;
         }
 
         // Add PDFs if provided
