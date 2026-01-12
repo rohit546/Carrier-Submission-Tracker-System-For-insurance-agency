@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSubmission, getInsuredInformation } from '@/lib/db/queries';
 import { createNovataeSheet } from '@/lib/google-sheets';
+import { InsuredInformation } from '@/lib/types';
 
 export async function POST(
   request: NextRequest,
@@ -53,7 +54,20 @@ export async function POST(
 
     // Create Novatae sheet
     console.log(`[NOVATAE-SUBMIT] Creating sheet for ${insuredInfo.corporationName}`);
-    const result = await createNovataeSheet(insuredInfo, submissionId);
+    
+    // Convert null values to undefined for type compatibility
+    const normalizedInsuredInfo: InsuredInformation = {
+      ...insuredInfo,
+      targetPremium: insuredInfo.targetPremium ?? undefined,
+      noOfMPOs: insuredInfo.noOfMPOs ?? undefined,
+      yearsExpInBusiness: insuredInfo.yearsExpInBusiness ?? undefined,
+      yearsAtLocation: insuredInfo.yearsAtLocation ?? undefined,
+      yearBuilt: insuredInfo.yearBuilt ?? undefined,
+      yearLatestUpdate: insuredInfo.yearLatestUpdate ?? undefined,
+      totalSqFootage: insuredInfo.totalSqFootage ?? undefined,
+    };
+    
+    const result = await createNovataeSheet(normalizedInsuredInfo, submissionId);
 
     console.log(`[NOVATAE-SUBMIT] Sheet created: ${result.sheetUrl}`);
 
