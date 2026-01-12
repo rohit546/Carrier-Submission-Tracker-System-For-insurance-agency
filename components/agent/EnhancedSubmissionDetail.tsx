@@ -314,39 +314,39 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   }, [submission.insuredInfoId, insuredInfo, submission.source]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between mb-6">
+    <div className="space-y-4">
+      <div className="flex items-start justify-between mb-4">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h2 className="text-3xl font-bold text-black">{submission.businessName}</h2>
+          <div className="flex items-center gap-3 mb-1">
+            <h2 className="text-2xl font-bold text-black">{submission.businessName}</h2>
             {(submission.status === 'quoted' || submission.status === 'submitted') && (
-              <span className="badge bg-gray-700 text-white">SUBMITTED</span>
+              <span className="badge bg-gray-700 text-white text-xs">SUBMITTED</span>
             )}
             {saved && (
-              <span className="badge bg-green-600 text-white">Saved!</span>
+              <span className="badge bg-green-600 text-white text-xs">Saved!</span>
             )}
           </div>
-          <p className="text-gray-600">{getBusinessTypeName()}</p>
+          <p className="text-gray-600 text-sm">{getBusinessTypeName()}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAutomationStatusModal(true)}
-            className="btn-secondary text-sm flex items-center gap-2"
+            className="btn-secondary text-xs flex items-center gap-1 px-2 py-1"
             title="View automation status"
           >
-            <Activity className="w-4 h-4" />
+            <Activity className="w-3 h-3" />
             Automation Status
           </button>
           <button
             onClick={() => setShowAutoSubmitModal(true)}
             disabled={submitting || !insuredInfo}
-            className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary text-xs flex items-center gap-1 px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
             title={!insuredInfo ? 'Insured information is required' : 'Submit to RPA automation'}
           >
-            <Rocket className="w-4 h-4" />
+            <Rocket className="w-3 h-3" />
             Auto Submit
           </button>
-          <Link href="/agent" className="btn-secondary text-sm">
+          <Link href="/agent" className="btn-secondary text-xs px-2 py-1">
             Back to List
           </Link>
         </div>
@@ -354,22 +354,22 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
 
       {/* Submit Status Message */}
       {submitStatus && (
-        <div className={`card p-4 mb-4 ${
+        <div className={`card p-3 mb-3 ${
           submitStatus.success 
             ? 'bg-green-50 border border-green-200' 
             : 'bg-amber-50 border border-amber-200'
         }`}>
           <div className="flex items-start gap-2">
-            <span className={`text-lg ${submitStatus.success ? 'text-green-600' : 'text-amber-600'}`}>
+            <span className={`text-base ${submitStatus.success ? 'text-green-600' : 'text-amber-600'}`}>
               {submitStatus.success ? '✓' : '⚠'}
             </span>
             <div className="flex-1">
-              <p className={`text-sm font-medium ${
+              <p className={`text-xs font-medium ${
                 submitStatus.success ? 'text-green-800' : 'text-amber-800'
               }`}>
                 {submitStatus.success ? 'Submission Complete' : 'Submission Status'}
               </p>
-              <div className={`text-sm mt-2 space-y-1 ${
+              <div className={`text-xs mt-1 space-y-0.5 ${
                 submitStatus.success ? 'text-green-700' : 'text-amber-700'
               }`}>
                 {submitStatus.message?.split('\n').map((line, idx) => (
@@ -384,7 +384,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
             </div>
             <button
               onClick={() => setSubmitStatus(null)}
-              className={`${submitStatus.success ? 'text-green-600 hover:text-green-800' : 'text-amber-600 hover:text-amber-800'} text-lg font-bold`}
+              className={`${submitStatus.success ? 'text-green-600 hover:text-green-800' : 'text-amber-600 hover:text-amber-800'} text-base font-bold`}
               aria-label="Close"
             >
               ×
@@ -408,49 +408,53 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
       ) : null}
 
       {/* Business Type Selection - Required before showing carriers */}
-      <div className="card p-6">
-        <h3 className="text-lg font-semibold text-black mb-4">Select Business Type</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Please select a business type to view available carriers and their appetite.
-        </p>
-        <select
-          value={selectedBusinessType}
-          onChange={(e) => handleBusinessTypeChange(e.target.value)}
-          className="w-full md:w-auto px-4 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-black"
-        >
-          <option value="">-- Select Business Type --</option>
-          {businessTypes.map((bt) => (
-            <option key={bt.id} value={bt.id}>
-              {bt.name}
-            </option>
-          ))}
-        </select>
-        {loadingAppetite && (
-          <p className="text-sm text-gray-500 mt-2">Loading carrier appetite...</p>
-        )}
+      <div className="card p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <h3 className="text-base font-semibold text-black mb-1">Select Business Type</h3>
+            <p className="text-xs text-gray-600 mb-2">
+              Please select a business type to view available carriers and their appetite.
+            </p>
+          </div>
+          <select
+            value={selectedBusinessType}
+            onChange={(e) => handleBusinessTypeChange(e.target.value)}
+            className="px-3 py-1.5 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-black text-sm"
+          >
+            <option value="">-- Select Business Type --</option>
+            {businessTypes.map((bt) => (
+              <option key={bt.id} value={bt.id}>
+                {bt.name}
+              </option>
+            ))}
+          </select>
+          {loadingAppetite && (
+            <p className="text-xs text-gray-500 ml-2">Loading...</p>
+          )}
+        </div>
       </div>
 
       {/* Save Button - Simple and at the end */}
       {submission.status !== 'submitted' && submission.status !== 'bound' && (
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-lg">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-2 shadow-lg z-10">
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-gray-600">
               {saved && <span className="text-green-600 font-medium">✓ Saved!</span>}
               {!saved && <span>Make changes and click Save</span>}
             </div>
             <button
               onClick={saveSubmission}
               disabled={saving}
-              className="btn-primary flex items-center gap-2 min-w-[120px] justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary flex items-center gap-1 text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? (
                 <>
-                  <span className="animate-spin">⏳</span>
+                  <span className="animate-spin text-xs">⏳</span>
                   Saving...
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4" />
+                  <Save className="w-3 h-3" />
                   Save
                 </>
               )}
@@ -461,19 +465,19 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
 
       {/* Carriers with Full Appetite Information - Only show if business type selected */}
       {selectedBusinessType ? (
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-black">Available Carriers</h3>
-            <div className="flex items-center gap-4">
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold text-black">Available Carriers</h3>
+            <div className="flex items-center gap-3">
               <a
                 href="https://deployment-delta-eight.vercel.app/summary"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-primary text-sm"
+                className="btn-primary text-xs px-2 py-1"
               >
                 Generate Summary
               </a>
-              <div className="flex items-center gap-4 text-xs text-gray-600">
+              <div className="flex items-center gap-3 text-xs text-gray-600">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                 Active
@@ -493,7 +497,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
           {getSuggestedCarriers().length === 0 ? (
             <p className="text-gray-500 text-sm">No carriers available for this business type</p>
           ) : (
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {getSuggestedCarriers().map((carrier) => {
               const appetite = getCarrierAppetite(carrier.id);
               const quote = getCarrierQuote(carrier.id);
@@ -501,7 +505,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
               const selected = quote?.selected || false;
               
               return (
-                <div key={carrier.id} className={`border rounded-sm p-5 space-y-4 ${
+                <div key={carrier.id} className={`border rounded-sm p-3 space-y-2 flex flex-col ${
                   appetite?.status === 'active' ? 'border-green-200 bg-green-50/30' :
                   appetite?.status === 'limited' ? 'border-yellow-200 bg-yellow-50/30' :
                   appetite?.status === 'unresponsive' ? 'border-orange-200 bg-orange-50/30' :
@@ -509,18 +513,18 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
                   'border-gray-200'
                 }`}>
                   {/* Carrier Header */}
-                  <div className="flex items-start justify-between border-b border-gray-200 pb-3">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-start justify-between border-b border-gray-200 pb-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                       <input
                         type="checkbox"
                         checked={quoted}
                         onChange={(e) => updateCarrierQuote(carrier.id, { quoted: e.target.checked })}
-                        className="w-5 h-5 border-2 border-gray-300 rounded-sm checked:bg-black checked:border-black mt-1"
+                        className="w-4 h-4 border-2 border-gray-300 rounded-sm checked:bg-black checked:border-black flex-shrink-0"
                       />
-                      <div>
-                        <h4 className="font-semibold text-black text-lg">{carrier.name}</h4>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-semibold text-black text-sm truncate">{carrier.name}</h4>
                         {appetite?.status && (
-                          <span className={`text-xs px-2 py-0.5 rounded mt-1 inline-block font-medium ${
+                          <span className={`text-xs px-1.5 py-0.5 rounded mt-0.5 inline-block font-medium ${
                             appetite.status === 'active' ? 'bg-green-100 text-green-700 border border-green-300' :
                             appetite.status === 'limited' ? 'bg-yellow-100 text-yellow-700 border border-yellow-300' :
                             appetite.status === 'unresponsive' ? 'bg-orange-100 text-orange-700 border border-orange-300' :
@@ -536,140 +540,87 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 flex-shrink-0">
                       {selected && (
-                        <span className="text-xs bg-black text-white px-2 py-1 rounded">Selected</span>
+                        <span className="text-xs bg-black text-white px-1.5 py-0.5 rounded">Selected</span>
                       )}
                       <input
                         type="checkbox"
                         checked={selected}
                         onChange={(e) => updateCarrierQuote(carrier.id, { selected: e.target.checked })}
-                        className="w-5 h-5"
+                        className="w-4 h-4"
                         disabled={!quoted}
                         title="Mark as selected"
                       />
                     </div>
                   </div>
 
-                  {/* Carrier Appetite Information */}
+                  {/* Compact Appetite Info - Only show key info */}
                   {appetite && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      {/* Geographic Restrictions */}
-                      {appetite.geographicRestrictions && appetite.geographicRestrictions.length > 0 && (
-                        <div className="flex items-start gap-2">
-                          <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-gray-700">Geographic Restrictions</p>
-                            <p className="text-gray-600">{appetite.geographicRestrictions.join(', ')}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Exclusions */}
-                      {appetite.exclusions && appetite.exclusions.length > 0 && (
-                        <div className="flex items-start gap-2">
-                          <X className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-gray-700">Exclusions</p>
-                            <p className="text-gray-600">{appetite.exclusions.join(', ')}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Coverage Details */}
+                    <div className="space-y-1 text-xs">
+                      {/* Coverage Details - Compact */}
                       {appetite.coverageDetails && Object.keys(appetite.coverageDetails).length > 0 && (
-                        <div className="flex items-start gap-2">
-                          <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-gray-700">Coverage</p>
-                            <div className="text-gray-600 space-y-1">
-                              {appetite.coverageDetails.glLimit && (
-                                <p>GL Limit: {appetite.coverageDetails.glLimit}</p>
-                              )}
-                              {appetite.coverageDetails.property && <p>✓ Property</p>}
-                              {appetite.coverageDetails.liability && <p>✓ Liability</p>}
-                            </div>
-                          </div>
+                        <div className="flex items-center gap-1">
+                          <Info className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                          <span className="text-gray-700 font-medium">Coverage:</span>
+                          <span className="text-gray-600">
+                            {appetite.coverageDetails.property && 'Property '}
+                            {appetite.coverageDetails.liability && 'Liability '}
+                            {appetite.coverageDetails.glLimit && `GL: ${appetite.coverageDetails.glLimit}`}
+                          </span>
                         </div>
                       )}
 
-                      {/* Operational Criteria */}
-                      {appetite.operationalCriteria && Object.keys(appetite.operationalCriteria).length > 0 && (
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-gray-700">Requirements</p>
-                            <div className="text-gray-600 space-y-1">
-                              {appetite.operationalCriteria.minHours && (
-                                <p>Min Hours: {appetite.operationalCriteria.minHours}</p>
-                              )}
-                              {appetite.operationalCriteria.maxHours && (
-                                <p>Max Hours: {appetite.operationalCriteria.maxHours}</p>
-                              )}
-                              {appetite.operationalCriteria.requirements && (
-                                <p>{appetite.operationalCriteria.requirements}</p>
-                              )}
-                            </div>
-                          </div>
+                      {/* Geographic Restrictions - Compact */}
+                      {appetite.geographicRestrictions && appetite.geographicRestrictions.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                          <span className="text-gray-600 text-xs truncate">
+                            {appetite.geographicRestrictions.join(', ')}
+                          </span>
                         </div>
                       )}
 
-                      {/* Contact Info */}
-                      {appetite.contactInfo && (appetite.contactInfo.email || appetite.contactInfo.name) && (
-                        <div className="flex items-start gap-2">
-                          <Info className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-gray-700">Contact</p>
-                            <div className="text-gray-600">
-                              {appetite.contactInfo.name && <p>{appetite.contactInfo.name}</p>}
-                              {appetite.contactInfo.email && <p className="text-xs">{appetite.contactInfo.email}</p>}
-                            </div>
-                          </div>
+                      {/* Notes - Compact */}
+                      {appetite?.notes && (
+                        <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
+                          <p className="text-xs font-medium text-gray-700 mb-0.5">Notes</p>
+                          <p className="text-xs text-gray-600 line-clamp-2">{appetite.notes}</p>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Notes */}
-                  {appetite?.notes && (
-                    <div className="bg-gray-50 p-3 rounded-sm border border-gray-200">
-                      <p className="text-xs font-medium text-gray-700 mb-1">Notes</p>
-                      <p className="text-sm text-gray-600">{appetite.notes}</p>
+                  {/* Quote Section - Always visible, compact */}
+                  <div className="border-t border-gray-200 pt-2 space-y-2 mt-auto">
+                    <div>
+                      <label className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-0.5">
+                        <DollarSign className="w-3 h-3" />
+                        Quoted Amount
+                      </label>
+                      <input
+                        type="number"
+                        value={quote?.amount || ''}
+                        onChange={(e) => updateCarrierQuote(carrier.id, { amount: parseFloat(e.target.value) || null })}
+                        className="input-field text-sm py-1 px-2"
+                        placeholder="Enter amount"
+                      />
                     </div>
-                  )}
 
-                  {/* Quote Section */}
-                  {quoted && (
-                    <div className="border-t border-gray-200 pt-4 space-y-3 mt-4">
-                      <div>
-                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                          <DollarSign className="w-4 h-4" />
-                          Quoted Amount
-                        </label>
-                        <input
-                          type="number"
-                          value={quote?.amount || ''}
-                          onChange={(e) => updateCarrierQuote(carrier.id, { amount: parseFloat(e.target.value) || null })}
-                          className="input-field"
-                          placeholder="Enter amount"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                          <MessageSquare className="w-4 h-4" />
-                          Remarks
-                        </label>
-                        <textarea
-                          value={quote?.remarks || ''}
-                          onChange={(e) => updateCarrierQuote(carrier.id, { remarks: e.target.value })}
-                          className="input-field"
-                          rows={3}
-                          placeholder="Add remarks about this quote..."
-                        />
-                      </div>
+                    <div>
+                      <label className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-0.5">
+                        <MessageSquare className="w-3 h-3" />
+                        Remarks
+                      </label>
+                      <textarea
+                        value={quote?.remarks || ''}
+                        onChange={(e) => updateCarrierQuote(carrier.id, { remarks: e.target.value })}
+                        className="input-field text-sm py-1 px-2"
+                        rows={2}
+                        placeholder="Add remarks..."
+                      />
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
@@ -677,8 +628,8 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
           )}
         </div>
       ) : (
-        <div className="card p-6 bg-gray-50">
-          <p className="text-gray-600 text-center">
+        <div className="card p-4 bg-gray-50">
+          <p className="text-gray-600 text-center text-sm">
             Please select a business type above to view available carriers.
           </p>
         </div>

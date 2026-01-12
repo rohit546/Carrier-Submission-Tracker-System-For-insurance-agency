@@ -319,56 +319,56 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
   };
 
   return (
-    <div className="card p-6 mb-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="card p-4 mb-4">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Building2 className="w-6 h-6 text-black" />
-          <h2 className="text-2xl font-bold text-black">Insured Information</h2>
+          <Building2 className="w-5 h-5 text-black" />
+          <h2 className="text-xl font-bold text-black">Insured Information</h2>
           {normalizedInfo.source === 'eform' && (
-            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">From Eform</span>
+            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">From Eform</span>
           )}
         </div>
         {isEditable && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {isEditing ? (
               <>
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="p-2 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
+                  className="p-1.5 text-green-600 hover:bg-green-50 rounded disabled:opacity-50"
                   title="Save changes"
                 >
-                  <Check className="w-5 h-5" />
+                  <Check className="w-4 h-4" />
                 </button>
                 <button
                   onClick={handleCancel}
                   disabled={saving}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
                   title="Cancel editing"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </>
             ) : (
               <button
                 onClick={handleEdit}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded"
+                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
                 title="Edit insured information"
               >
-                <Pencil className="w-5 h-5" />
+                <Pencil className="w-4 h-4" />
               </button>
             )}
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Basic Information */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-black border-b border-gray-200 pb-2">Basic Information</h3>
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-black border-b border-gray-200 pb-1">Basic Information</h3>
           
           <div>
-            <label className="text-sm font-medium text-gray-600">Corporation Name *</label>
+            <label className="text-xs font-medium text-gray-600">Corporation Name *</label>
             {isEditing ? (
               <input
                 type="text"
@@ -379,17 +379,17 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
                 required
               />
             ) : (
-              <p className="text-black font-medium">{normalizedInfo.corporationName || 'N/A'}</p>
+              <p className="text-black font-medium text-sm">{normalizedInfo.corporationName || 'N/A'}</p>
             )}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-600">DBA (Doing Business As)</label>
+            <label className="text-xs font-medium text-gray-600">DBA (Doing Business As)</label>
             {renderField('DBA', 'dba')}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-600">FEIN ID</label>
+            <label className="text-xs font-medium text-gray-600">FEIN ID</label>
             {isEditing ? (
               <div>
                 <input
@@ -426,36 +426,36 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
                 )}
               </div>
             ) : (
-              <p className="text-black text-sm">
+              <p className="text-black text-xs">
                 {normalizedInfo.fein ? formatFEIN(normalizedInfo.fein) : 'N/A'}
               </p>
             )}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-600">Ownership Type</label>
+            <label className="text-xs font-medium text-gray-600">Ownership Type</label>
             {renderField('Ownership Type', 'ownershipType')}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-600">Applicant Type</label>
+            <label className="text-xs font-medium text-gray-600">Applicant Type</label>
             {renderField('Applicant Type', 'applicantIs')}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-600">Operation Description</label>
+            <label className="text-xs font-medium text-gray-600">Operation Description</label>
             {renderField('Operation Description', 'operationDescription', 'textarea')}
           </div>
         </div>
 
         {/* Contact Information */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-black border-b border-gray-200 pb-2">Contact Information</h3>
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-black border-b border-gray-200 pb-1">Contact Information</h3>
           
           <div className="flex items-start gap-2">
             <User className="w-4 h-4 text-gray-400 mt-1" />
             <div className="flex-1">
-              <label className="text-sm font-medium text-gray-600">Contact Name</label>
+              <label className="text-xs font-medium text-gray-600">Contact Name</label>
               {renderField('Contact Name', 'contactName')}
             </div>
           </div>
@@ -463,7 +463,7 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
           <div className="flex items-start gap-2">
             <Phone className="w-4 h-4 text-gray-400 mt-1" />
             <div className="flex-1">
-              <label className="text-sm font-medium text-gray-600">Contact Number</label>
+              <label className="text-xs font-medium text-gray-600">Contact Number</label>
               {renderField('Contact Number', 'contactNumber', 'tel')}
             </div>
           </div>
@@ -471,7 +471,7 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
           <div className="flex items-start gap-2">
             <Mail className="w-4 h-4 text-gray-400 mt-1" />
             <div className="flex-1">
-              <label className="text-sm font-medium text-gray-600">Contact Email</label>
+              <label className="text-xs font-medium text-gray-600">Contact Email</label>
               {renderField('Contact Email', 'contactEmail', 'email')}
             </div>
           </div>
@@ -479,71 +479,71 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
           <div className="flex items-start gap-2">
             <MapPin className="w-4 h-4 text-gray-400 mt-1" />
             <div className="flex-1">
-              <label className="text-sm font-medium text-gray-600">Address</label>
+              <label className="text-xs font-medium text-gray-600">Address</label>
               {renderField('Address', 'address', 'textarea')}
             </div>
           </div>
         </div>
 
         {/* Property Details */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-black border-b border-gray-200 pb-2">Property Details</h3>
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-black border-b border-gray-200 pb-1">Property Details</h3>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-2">
             <div>
-              <label className="text-sm font-medium text-gray-600">Hours of Operation</label>
+              <label className="text-xs font-medium text-gray-600">Hours of Operation</label>
               {renderField('Hours of Operation', 'hoursOfOperation')}
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">No. of MPOs</label>
+              <label className="text-xs font-medium text-gray-600">No. of MPOs</label>
               {renderField('No. of MPOs', 'noOfMPOs', 'number')}
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">Construction Type</label>
+              <label className="text-xs font-medium text-gray-600">Construction Type</label>
               {renderField('Construction Type', 'constructionType')}
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">Total Sq. Footage</label>
+              <label className="text-xs font-medium text-gray-600">Total Sq. Footage</label>
               {renderField('Total Sq. Footage', 'totalSqFootage', 'number')}
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">Year Built</label>
+              <label className="text-xs font-medium text-gray-600">Year Built</label>
               {renderField('Year Built', 'yearBuilt', 'number')}
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">Year of Latest Update</label>
+              <label className="text-xs font-medium text-gray-600">Year of Latest Update</label>
               {renderField('Year of Latest Update', 'yearLatestUpdate', 'number')}
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">Years Exp. in Business</label>
+              <label className="text-xs font-medium text-gray-600">Years Exp. in Business</label>
               {renderField('Years Exp. in Business', 'yearsExpInBusiness', 'number')}
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">Years at This Location</label>
+              <label className="text-xs font-medium text-gray-600">Years at This Location</label>
               {renderField('Years at This Location', 'yearsAtLocation', 'number')}
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">Protection Class</label>
+              <label className="text-xs font-medium text-gray-600">Protection Class</label>
               {renderField('Protection Class', 'protectionClass')}
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-600">Leased Out Space</label>
+              <label className="text-xs font-medium text-gray-600">Leased Out Space</label>
               {renderField('Leased Out Space', 'leasedOutSpace')}
             </div>
           </div>
         </div>
 
         {/* Additional Information */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-black border-b border-gray-200 pb-2">Additional Information</h3>
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-black border-b border-gray-200 pb-1">Additional Information</h3>
           
           <div>
-            <label className="text-sm font-medium text-gray-600">Lead Source</label>
+            <label className="text-xs font-medium text-gray-600">Lead Source</label>
             {renderField('Lead Source', 'leadSource')}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-600">Prior Carrier</label>
+            <label className="text-xs font-medium text-gray-600">Prior Carrier</label>
             {renderField('Prior Carrier', 'priorCarrier')}
           </div>
 
@@ -551,7 +551,7 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
             <div className="flex items-start gap-2">
               <DollarSign className="w-4 h-4 text-gray-400 mt-1" />
               <div className="flex-1">
-                <label className="text-sm font-medium text-gray-600">Target Premium</label>
+                <label className="text-xs font-medium text-gray-600">Target Premium</label>
                 {isEditing ? (
                   <input
                     type="number"
@@ -571,7 +571,7 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
             <div className="flex items-start gap-2">
               <Calendar className="w-4 h-4 text-gray-400 mt-1" />
               <div className="flex-1">
-                <label className="text-sm font-medium text-gray-600">Proposed Effective Date</label>
+                <label className="text-xs font-medium text-gray-600">Proposed Effective Date</label>
                 {renderField('Proposed Effective Date', 'proposedEffectiveDate', 'date')}
               </div>
             </div>
@@ -579,7 +579,7 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
 
           {(!isEditing && normalizedInfo.additionalInsured) || (isEditing && formData.additionalInsured !== undefined) ? (
             <div>
-              <label className="text-sm font-medium text-gray-600">Additional Insured</label>
+              <label className="text-xs font-medium text-gray-600">Additional Insured</label>
               {renderField('Additional Insured', 'additionalInsured', 'textarea')}
             </div>
           ) : null}
@@ -587,13 +587,13 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
       </div>
 
       {/* Coverage Information (Collapsible) - Always show */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
+      <div className="mt-4 pt-4 border-t border-gray-200">
         <details className="group" open>
-          <summary className="cursor-pointer text-lg font-semibold text-black flex items-center gap-2">
-            <FileText className="w-5 h-5" />
+          <summary className="cursor-pointer text-sm font-semibold text-black flex items-center gap-2">
+            <FileText className="w-4 h-4" />
             Coverage Details
           </summary>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Property Coverage - Show all fields */}
             <div>
               <h4 className="font-semibold text-black mb-2">Property Coverage</h4>

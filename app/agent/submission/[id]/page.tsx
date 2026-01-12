@@ -23,7 +23,7 @@ export default async function SubmissionDetailPage({ params, searchParams }: Pag
     
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
               🔗 <strong>Public Access Link</strong> - You're viewing this submission via a direct link from the eform.
@@ -57,7 +57,7 @@ export default async function SubmissionDetailPage({ params, searchParams }: Pag
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar user={{ name: currentUser?.name || 'Agent', role: user.role }} />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <EnhancedSubmissionDetail submission={submission} />
       </div>
     </div>
