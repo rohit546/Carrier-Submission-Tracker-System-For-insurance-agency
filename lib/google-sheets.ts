@@ -233,6 +233,21 @@ export async function createNovataeSheet(
     throw new Error(`Failed to copy spreadsheet: ${createError.message || 'Unknown error'}. Make sure domain-wide delegation is configured correctly.`);
   }
 
+  // Make the spreadsheet accessible to anyone with the link (no permission request needed)
+  try {
+    await drive.permissions.create({
+      fileId: newSpreadsheetId,
+      requestBody: {
+        role: 'reader', // Anyone with link can view
+        type: 'anyone', // Public access
+      },
+    });
+    console.log('[GOOGLE-SHEETS] Spreadsheet made publicly accessible (anyone with link can view)');
+  } catch (permissionError: any) {
+    console.warn('[GOOGLE-SHEETS] Could not set public permissions:', permissionError.message);
+    // Don't fail the whole operation if permission setting fails
+  }
+
   // Use the new spreadsheet ID
   const spreadsheetId = newSpreadsheetId;
 
