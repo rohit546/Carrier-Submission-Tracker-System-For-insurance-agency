@@ -204,7 +204,9 @@ export async function createNovataeSheet(
 }> {
   const { sheets } = getSheetsClient();
   const address = parseAddress(insuredInfo.address);
-  const newSheetTitle = `${insuredInfo.corporationName || 'Submission'} - ${new Date().toISOString().split('T')[0]}`;
+  // Add timestamp to make sheet name unique (handles multiple submissions same day)
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const newSheetTitle = `${insuredInfo.corporationName || 'Submission'} - ${timestamp}`;
 
   // Step 1: Create a new sheet tab in the existing template spreadsheet
   // This duplicates the template sheet tab with all formulas/formatting
