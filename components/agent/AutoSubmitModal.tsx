@@ -388,6 +388,7 @@ const SENDER_EMAILS = [
 
 // Available underwriter emails (Non-standard carriers) with company names
 const UNDERWRITER_OPTIONS = [
+  { email: 'avery.cheshier@novatae.com', company: 'AMC-Novatae' },
   { email: 'matthew.cummins@towerstonecorp.com', company: 'Tower Stone' },
   { email: 'mrein@bassuw.com', company: 'Bass (GA)' },
   { email: 'jrios@bassuw.com', company: 'Bass (TX)' },
