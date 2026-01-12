@@ -712,32 +712,56 @@ export async function POST(
     // Handle Novatae separately (Google Sheets, not webhook)
     if (carriers.includes('novatae')) {
       promises.push(
-        fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/submissions/${submissionId}/novatae-submit`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        })
-          .then(async (res) => {
-            const data = await res.json();
-            if (res.ok) {
-              return {
-                carrier: 'novatae' as CarrierType,
-                success: true,
-                data: {
-                  sheetUrl: data.sheetUrl,
-                  sheetId: data.sheetId,
-                },
-                message: `Novatae sheet created: ${data.sheetUrl}`,
-              };
-            } else {
-              return {
-                carrier: 'novatae' as CarrierType,
-                success: false,
-                error: data.error || 'Failed to create Novatae sheet',
-                message: data.error || 'Failed to create Novatae sheet',
-              };
+        (async () => {
+          try {
+            // Import and call directly instead of HTTP fetch
+            const { createNovataeSheet } = await import('@/lib/google-sheets');
+            const { getInsuredInformation } = await import('@/lib/db/queries');
+            
+            // Get insured information (submission is already available in outer scope)
+            if (!submission.insuredInfoId) {
+              throw new Error('Insured information is required for Novatae submission');
             }
-          })
-          .catch((error) => {
+            
+            const insuredInfo = await getInsuredInformation(submission.insuredInfoId);
+            if (!insuredInfo) {
+              throw new Error('Insured information not found');
+            }
+            
+            // Validate required fields
+            if (!insuredInfo.corporationName) {
+              throw new Error('Corporation name is required');
+            }
+            if (!insuredInfo.address) {
+              throw new Error('Address is required');
+            }
+            
+            // Normalize null to undefined for type compatibility
+            const normalizedInsuredInfo: any = {
+              ...insuredInfo,
+              targetPremium: insuredInfo.targetPremium ?? undefined,
+              noOfMPOs: insuredInfo.noOfMPOs ?? undefined,
+              yearsExpInBusiness: insuredInfo.yearsExpInBusiness ?? undefined,
+              yearsAtLocation: insuredInfo.yearsAtLocation ?? undefined,
+              yearBuilt: insuredInfo.yearBuilt ?? undefined,
+              yearLatestUpdate: insuredInfo.yearLatestUpdate ?? undefined,
+              totalSqFootage: insuredInfo.totalSqFootage ?? undefined,
+            };
+            
+            // Create Novatae sheet
+            console.log(`[AUTO-SUBMIT] Creating Novatae sheet for ${insuredInfo.corporationName}`);
+            const result = await createNovataeSheet(normalizedInsuredInfo, submissionId);
+            
+            return {
+              carrier: 'novatae' as CarrierType,
+              success: true,
+              data: {
+                sheetUrl: result.sheetUrl,
+                sheetId: result.sheetId,
+              },
+              message: `Novatae sheet created: ${result.sheetUrl}`,
+            };
+          } catch (error: any) {
             console.error('[AUTO-SUBMIT] Novatae error:', error);
             return {
               carrier: 'novatae' as CarrierType,
@@ -745,7 +769,8 @@ export async function POST(
               error: error.message || 'Failed to create Novatae sheet',
               message: error.message || 'Failed to create Novatae sheet',
             };
-          })
+          }
+        })()
       );
     }
 
