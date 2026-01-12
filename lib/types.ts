@@ -87,6 +87,7 @@ export interface Submission {
     encova?: RpaTaskStatus;
     guard?: RpaTaskStatus;
     columbia?: RpaTaskStatus;
+    novatae?: RpaTaskStatus;
   };
 }
 
@@ -100,6 +101,8 @@ export interface RpaTaskStatus {
   result?: {
     policy_code?: string;
     quote_url?: string;
+    sheet_url?: string;
+    sheetUrl?: string;
     message?: string;
   };
   error?: string;

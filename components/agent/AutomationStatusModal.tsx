@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Submission, RpaTaskStatus } from '@/lib/types';
-import { X, Building2, Shield, Loader2, CheckCircle, XCircle, Clock, ExternalLink, AlertCircle } from 'lucide-react';
+import { X, Building2, Shield, Loader2, CheckCircle, XCircle, Clock, ExternalLink, AlertCircle, FileSpreadsheet } from 'lucide-react';
 
 interface AutomationStatusModalProps {
   isOpen: boolean;
@@ -13,7 +13,7 @@ interface AutomationStatusModalProps {
 
 interface CarrierStatusInfo {
   name: string;
-  key: 'encova' | 'guard' | 'columbia';
+  key: 'encova' | 'guard' | 'columbia' | 'novatae';
   icon: React.ReactNode;
   color: string;
   status?: RpaTaskStatus;
@@ -84,7 +84,7 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
           const runningTimeout = setTimeout(() => {
             setRpaTasks(prev => {
               if (!prev) return prev;
-              const carrierKey = carrier as 'encova' | 'guard' | 'columbia';
+              const carrierKey = carrier as 'encova' | 'guard' | 'columbia' | 'novatae';
               const currentTask = prev[carrierKey];
               return {
                 ...prev,
@@ -170,6 +170,13 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
       icon: <Building2 className="w-5 h-5" />,
       color: 'purple',
       status: rpaTasks?.columbia,
+    },
+    {
+      name: 'Novatae AMC',
+      key: 'novatae',
+      icon: <FileSpreadsheet className="w-5 h-5" />,
+      color: 'orange',
+      status: rpaTasks?.novatae,
     },
   ];
 
@@ -281,6 +288,8 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
         return 'border-green-200 bg-green-50/30';
       case 'purple':
         return 'border-purple-200 bg-purple-50/30';
+      case 'orange':
+        return 'border-orange-200 bg-orange-50/30';
       default:
         return 'border-gray-200 bg-gray-50/30';
     }
@@ -294,6 +303,8 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
         return 'text-green-600';
       case 'purple':
         return 'text-purple-600';
+      case 'orange':
+        return 'text-orange-600';
       default:
         return 'text-gray-600';
     }
@@ -480,6 +491,20 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
                                 className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
                               >
                                 View Quote
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          )}
+                          {(status.result.sheet_url || status.result.sheetUrl) && (
+                            <div className="text-sm">
+                              <span className="font-medium text-gray-700">Sheet:</span>{' '}
+                              <a
+                                href={status.result.sheet_url || status.result.sheetUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+                              >
+                                View Sheet
                                 <ExternalLink className="w-3 h-3" />
                               </a>
                             </div>

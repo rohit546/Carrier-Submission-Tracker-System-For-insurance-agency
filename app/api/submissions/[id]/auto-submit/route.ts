@@ -3,7 +3,7 @@ import { getSubmission, getInsuredInformation } from '@/lib/db/queries';
 import sql from '@/lib/db/connection';
 
 // Carrier types
-type CarrierType = 'encova' | 'guard' | 'columbia';
+type CarrierType = 'encova' | 'guard' | 'columbia' | 'novatae';
 
 // Webhook URLs
 const ENCOVA_WEBHOOK_URL = process.env.ENCOVA_WEBHOOK_URL || 'https://encova-submission-bot-rpa-production.up.railway.app/webhook';
@@ -709,6 +709,46 @@ export async function POST(
       promises.push(sendToCarrier('columbia', columbiaPayload));
     }
 
+    // Handle Novatae separately (Google Sheets, not webhook)
+    if (carriers.includes('novatae')) {
+      promises.push(
+        fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/submissions/${submissionId}/novatae-submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+          .then(async (res) => {
+            const data = await res.json();
+            if (res.ok) {
+              return {
+                carrier: 'novatae' as CarrierType,
+                success: true,
+                data: {
+                  sheetUrl: data.sheetUrl,
+                  sheetId: data.sheetId,
+                },
+                message: `Novatae sheet created: ${data.sheetUrl}`,
+              };
+            } else {
+              return {
+                carrier: 'novatae' as CarrierType,
+                success: false,
+                error: data.error || 'Failed to create Novatae sheet',
+                message: data.error || 'Failed to create Novatae sheet',
+              };
+            }
+          })
+          .catch((error) => {
+            console.error('[AUTO-SUBMIT] Novatae error:', error);
+            return {
+              carrier: 'novatae' as CarrierType,
+              success: false,
+              error: error.message || 'Failed to create Novatae sheet',
+              message: error.message || 'Failed to create Novatae sheet',
+            };
+          })
+      );
+    }
+
     // Wait for all requests to complete
     const results = await Promise.all(promises);
 
@@ -721,17 +761,34 @@ export async function POST(
     const now = new Date().toISOString();
     
     for (const result of results) {
-      if (result.success && result.data?.task_id) {
-        // Check if bot returned status (e.g., "accepted")
-        const botStatus = result.data?.status || 'queued';
-        const initialStatus = botStatus === 'accepted' ? 'accepted' : 'queued';
-        
-        updatedRpaTasks[result.carrier] = {
-          task_id: result.data.task_id,
-          status: initialStatus,
-          submitted_at: now,
-          ...(botStatus === 'accepted' ? { accepted_at: now } : {}),
-        };
+      if (result.success) {
+        if (result.carrier === 'novatae' && result.data?.sheetUrl) {
+          // Novatae returns a sheet URL, not a task_id
+          updatedRpaTasks[result.carrier] = {
+            task_id: `novatae_${submissionId}_${Date.now()}`,
+            sheet_url: result.data.sheetUrl,
+            sheet_id: result.data.sheetId,
+            status: 'completed',
+            submitted_at: now,
+            completed_at: now,
+            result: {
+              sheetUrl: result.data.sheetUrl,
+              sheet_url: result.data.sheetUrl,
+              message: 'Sheet created successfully',
+            },
+          };
+        } else if (result.data?.task_id) {
+          // Other carriers return task_id
+          const botStatus = result.data?.status || 'queued';
+          const initialStatus = botStatus === 'accepted' ? 'accepted' : 'queued';
+          
+          updatedRpaTasks[result.carrier] = {
+            task_id: result.data.task_id,
+            status: initialStatus,
+            submitted_at: now,
+            ...(botStatus === 'accepted' ? { accepted_at: now } : {}),
+          };
+        }
       }
     }
     
@@ -756,10 +813,14 @@ export async function POST(
       response.results[result.carrier] = {
         success: result.success,
         message: result.success 
-          ? (result.data?.message || 'Submitted successfully')
+          ? (result.data?.message || result.message || 'Submitted successfully')
           : (result.error || 'Submission failed'),
         taskId: result.data?.task_id,
         status: result.data?.status,
+        ...(result.carrier === 'novatae' && result.data?.sheetUrl && {
+          sheetUrl: result.data.sheetUrl,
+          sheetId: result.data.sheetId,
+        }),
         ...(result.data?.account_created && {
           accountCreated: true,
           accountNumber: result.data.account_number,

@@ -5,7 +5,7 @@ import { InsuredInformation } from '@/lib/types';
 import { X, CheckCircle, AlertCircle, Rocket, Building2, Shield, Mail, Paperclip, ChevronDown, ChevronUp } from 'lucide-react';
 
 // Carrier types
-export type CarrierType = 'encova' | 'guard' | 'columbia';
+export type CarrierType = 'encova' | 'guard' | 'columbia' | 'novatae';
 
 interface AutoSubmitModalProps {
   isOpen: boolean;
@@ -416,6 +416,7 @@ export default function AutoSubmitModal({
   const [encovaErrors, setEncovaErrors] = useState<string[]>([]);
   const [guardErrors, setGuardErrors] = useState<string[]>([]);
   const [columbiaErrors, setColumbiaErrors] = useState<string[]>([]);
+  const [novataeErrors, setNovataeErrors] = useState<string[]>([]);
   const [completeness, setCompleteness] = useState(0);
 
   // Non-Standard Market state
@@ -480,6 +481,7 @@ McKinney & Co`);
       setEncovaErrors(['Insured information is not available']);
       setGuardErrors(['Insured information is not available']);
       setColumbiaErrors(['Insured information is not available']);
+      setNovataeErrors(['Insured information is not available']);
       setCompleteness(0);
       return;
     }
@@ -487,6 +489,7 @@ McKinney & Co`);
     const eErrors: string[] = [];
     const gErrors: string[] = [];
     const cErrors: string[] = [];
+    const nErrors: string[] = [];
     let completeFields = 0;
     let totalFields = 0;
 
@@ -667,9 +670,19 @@ McKinney & Co`);
     if ((normalizedInfo.propertyCoverage as any)?.bi) completeFields++;
     if ((normalizedInfo.propertyCoverage as any)?.bpp) completeFields++;
 
+    // === NOVATAE-SPECIFIC VALIDATION ===
+    // Novatae requires basic info for sheet creation
+    if (!normalizedInfo.corporationName?.trim()) {
+      nErrors.push('Corporation name is required');
+    }
+    if (!normalizedInfo.address?.trim()) {
+      nErrors.push('Address is required');
+    }
+
     setEncovaErrors(eErrors);
     setGuardErrors(gErrors);
     setColumbiaErrors(cErrors);
+    setNovataeErrors(nErrors);
     setCompleteness(Math.round((completeFields / totalFields) * 100));
   }
 
@@ -840,7 +853,8 @@ McKinney & Co`);
   const hasEncovaErrors = selectedCarriers.includes('encova') && encovaErrors.length > 0;
   const hasGuardErrors = selectedCarriers.includes('guard') && guardErrors.length > 0;
   const hasColumbiaErrors = selectedCarriers.includes('columbia') && columbiaErrors.length > 0;
-  const isValid = selectedCarriers.length > 0 && !hasEncovaErrors && !hasGuardErrors && !hasColumbiaErrors;
+  const hasNovataeErrors = selectedCarriers.includes('novatae') && novataeErrors.length > 0;
+  const isValid = selectedCarriers.length > 0 && !hasEncovaErrors && !hasGuardErrors && !hasColumbiaErrors && !hasNovataeErrors;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -982,6 +996,44 @@ McKinney & Co`);
                     </div>
                   )}
                   {selectedCarriers.includes('columbia') && columbiaErrors.length === 0 && (
+                    <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Ready to submit
+                    </div>
+                  )}
+                </div>
+              </label>
+
+              {/* Novatae AMC Card */}
+              <label 
+                className={`relative flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  selectedCarriers.includes('novatae')
+                    ? 'border-emerald-500 bg-emerald-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedCarriers.includes('novatae')}
+                  onChange={() => toggleCarrier('novatae')}
+                  disabled={submitting}
+                  className="mt-1 h-5 w-5 text-emerald-600 rounded"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-emerald-600" />
+                    <span className="font-semibold text-black">Novatae AMC</span>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Google Sheets Rating Tool
+                  </p>
+                  {selectedCarriers.includes('novatae') && novataeErrors.length > 0 && (
+                    <div className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {novataeErrors.length} validation error{novataeErrors.length > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  {selectedCarriers.includes('novatae') && novataeErrors.length === 0 && (
                     <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
                       <CheckCircle className="w-3 h-3" />
                       Ready to submit
@@ -1329,7 +1381,7 @@ McKinney & Co`);
           </div>
 
           {/* Validation Errors */}
-          {(hasEncovaErrors || hasGuardErrors || hasColumbiaErrors) && (
+          {(hasEncovaErrors || hasGuardErrors || hasColumbiaErrors || hasNovataeErrors) && (
             <div className="space-y-3">
               {hasEncovaErrors && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -1369,6 +1421,21 @@ McKinney & Co`);
                       <h3 className="font-semibold text-purple-800 mb-2">Columbia - Required Fields Missing:</h3>
                       <ul className="list-disc list-inside space-y-1 text-sm text-purple-700">
                         {columbiaErrors.map((error, idx) => (
+                          <li key={idx}>{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {hasNovataeErrors && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <Building2 className="w-5 h-5 text-emerald-600 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-emerald-800 mb-2">Novatae AMC - Required Fields Missing:</h3>
+                      <ul className="list-disc list-inside space-y-1 text-sm text-emerald-700">
+                        {novataeErrors.map((error, idx) => (
                           <li key={idx}>{error}</li>
                         ))}
                       </ul>

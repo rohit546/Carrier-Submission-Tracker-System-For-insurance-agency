@@ -601,7 +601,7 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
                 {(() => {
                   const propCoverage = isEditing ? (formData.propertyCoverage || {}) : (normalizedInfo.propertyCoverage || {});
                   const propFields = [
-                    { key: 'bi', label: 'Business Interruption' },
+                    { key: 'bi', label: 'Business Income' },
                     { key: 'bpp', label: 'Business Personal Property' },
                     { key: 'pumps', label: 'Pumps' },
                     { key: 'canopy', label: 'Canopy' },
