@@ -434,35 +434,6 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         </div>
       </div>
 
-      {/* Save Button - Simple and at the end */}
-      {submission.status !== 'submitted' && submission.status !== 'bound' && (
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-2 shadow-lg z-10">
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-gray-600">
-              {saved && <span className="text-green-600 font-medium">✓ Saved!</span>}
-              {!saved && <span>Make changes and click Save</span>}
-            </div>
-            <button
-              onClick={saveSubmission}
-              disabled={saving}
-              className="btn-primary flex items-center gap-1 text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <>
-                  <span className="animate-spin text-xs">⏳</span>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-3 h-3" />
-                  Save
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Carriers with Full Appetite Information - Only show if business type selected */}
       {selectedBusinessType ? (
         <div className="card p-4">
@@ -651,6 +622,35 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         submissionId={submission.id}
         initialRpaTasks={submission.rpa_tasks}
       />
+
+      {/* Save Button - At the bottom of the page */}
+      {submission.status !== 'submitted' && submission.status !== 'bound' && (
+        <div className="mt-6 bg-white border-t border-gray-200 p-4 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              {saved && <span className="text-green-600 font-medium">✓ Saved!</span>}
+              {!saved && <span>Make changes and click Save</span>}
+            </div>
+            <button
+              onClick={saveSubmission}
+              disabled={saving}
+              className="btn-primary flex items-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Save
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
