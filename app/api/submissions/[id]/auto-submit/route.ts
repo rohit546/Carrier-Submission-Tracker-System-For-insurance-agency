@@ -752,6 +752,8 @@ export async function POST(
             console.log(`[AUTO-SUBMIT] Creating Novatae sheet for ${insuredInfo.corporationName}`);
             const result = await createNovataeSheet(normalizedInsuredInfo, submissionId);
             
+            console.log(`[AUTO-SUBMIT] Novatae sheet created, premiums:`, result.premiums);
+            
             return {
               carrier: 'novatae' as CarrierType,
               success: true,
@@ -790,6 +792,7 @@ export async function POST(
       if (result.success) {
         if (result.carrier === 'novatae' && result.data?.sheetUrl) {
           // Novatae returns a sheet URL, not a task_id
+          console.log(`[AUTO-SUBMIT] Saving Novatae result with premiums:`, result.data.premiums);
           updatedRpaTasks[result.carrier] = {
             task_id: `novatae_${submissionId}_${Date.now()}`,
             sheet_url: result.data.sheetUrl,
@@ -801,7 +804,7 @@ export async function POST(
               sheetUrl: result.data.sheetUrl,
               sheet_url: result.data.sheetUrl,
               message: 'Sheet created successfully',
-              premiums: result.data.premiums,
+              premiums: result.data.premiums || undefined,
             },
           };
         } else if (result.data?.task_id) {
