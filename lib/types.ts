@@ -104,6 +104,12 @@ export interface RpaTaskStatus {
     sheet_url?: string;
     sheetUrl?: string;
     message?: string;
+    premiums?: {
+      totalGLPremium?: number;
+      totalPropertyPremium?: number;
+      optionalTotalPremium?: number;
+      totalPremium?: number;
+    };
   };
   error?: string;
   error_details?: string;

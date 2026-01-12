@@ -758,6 +758,7 @@ export async function POST(
               data: {
                 sheetUrl: result.sheetUrl,
                 sheetId: result.sheetId,
+                premiums: result.premiums,
               },
               message: `Novatae sheet created: ${result.sheetUrl}`,
             };
@@ -800,6 +801,7 @@ export async function POST(
               sheetUrl: result.data.sheetUrl,
               sheet_url: result.data.sheetUrl,
               message: 'Sheet created successfully',
+              premiums: result.data.premiums,
             },
           };
         } else if (result.data?.task_id) {

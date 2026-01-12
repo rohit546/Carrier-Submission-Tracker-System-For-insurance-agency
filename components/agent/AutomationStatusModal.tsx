@@ -509,6 +509,43 @@ export default function AutomationStatusModal({ isOpen, onClose, submissionId, i
                               </a>
                             </div>
                           )}
+                          {status.result.premiums && (
+                            <div className="mt-3 pt-3 border-t border-gray-200 space-y-1.5">
+                              <div className="text-sm font-semibold text-gray-700 mb-2">Premium Breakdown:</div>
+                              {status.result.premiums.totalGLPremium && (
+                                <div className="text-sm flex justify-between">
+                                  <span className="text-gray-600">Total GL Premium:</span>
+                                  <span className="font-medium text-gray-900">
+                                    ${status.result.premiums.totalGLPremium.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              )}
+                              {status.result.premiums.totalPropertyPremium && (
+                                <div className="text-sm flex justify-between">
+                                  <span className="text-gray-600">Total Property Premium:</span>
+                                  <span className="font-medium text-gray-900">
+                                    ${status.result.premiums.totalPropertyPremium.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              )}
+                              {status.result.premiums.optionalTotalPremium && (
+                                <div className="text-sm flex justify-between">
+                                  <span className="text-gray-600">Optional Total Premium:</span>
+                                  <span className="font-medium text-gray-900">
+                                    ${status.result.premiums.optionalTotalPremium.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              )}
+                              {status.result.premiums.totalPremium && (
+                                <div className="text-sm flex justify-between pt-2 border-t border-gray-200 font-semibold">
+                                  <span className="text-gray-700">Total Premium:</span>
+                                  <span className="text-green-700 text-lg">
+                                    ${status.result.premiums.totalPremium.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {status.result.message && (
                             <div className="text-sm text-gray-600 italic bg-green-50 p-2 rounded">
                               {status.result.message}

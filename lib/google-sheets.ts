@@ -183,7 +183,16 @@ function formatDate(dateString: string | null | undefined): string {
 export async function createNovataeSheet(
   insuredInfo: InsuredInformation,
   submissionId: string
-): Promise<{ sheetUrl: string; sheetId: string }> {
+): Promise<{ 
+  sheetUrl: string; 
+  sheetId: string;
+  premiums?: {
+    totalGLPremium?: number;
+    totalPropertyPremium?: number;
+    optionalTotalPremium?: number;
+    totalPremium?: number;
+  };
+}> {
   const { sheets } = getSheetsClient();
   const address = parseAddress(insuredInfo.address);
   const newSheetTitle = `${insuredInfo.corporationName || 'Submission'} - ${new Date().toISOString().split('T')[0]}`;
@@ -462,8 +471,60 @@ export async function createNovataeSheet(
 
   console.log('[GOOGLE-SHEETS] Sheet tab created/updated successfully:', sheetUrl);
 
+  // Step 4: Read premium values from the sheet (wait a bit for formulas to calculate)
+  const premiums: {
+    totalGLPremium?: number;
+    totalPropertyPremium?: number;
+    optionalTotalPremium?: number;
+    totalPremium?: number;
+  } = {};
+  
+  try {
+    // Wait 2 seconds for formulas to calculate
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const escapedSheetName = newSheetTitle.includes(' ') || newSheetTitle.includes('-') 
+      ? `'${newSheetTitle}'` 
+      : newSheetTitle;
+    
+    // Read premium values
+    const premiumRanges = [
+      { range: `${escapedSheetName}!F80`, key: 'totalGLPremium' },
+      { range: `${escapedSheetName}!F93`, key: 'totalPropertyPremium' },
+      { range: `${escapedSheetName}!F104`, key: 'optionalTotalPremium' },
+      { range: `${escapedSheetName}!F117`, key: 'totalPremium' },
+    ];
+    
+    const premiumResponse = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: spreadsheetId,
+      ranges: premiumRanges.map(r => r.range),
+    });
+    
+    if (premiumResponse.data.valueRanges) {
+      premiumRanges.forEach((premiumRange, index) => {
+        const values = premiumResponse.data.valueRanges?.[index]?.values;
+        if (values && values[0] && values[0][0]) {
+          const value = values[0][0];
+          // Parse the value (might be a number or formatted string like "$1,234.56")
+          const numValue = typeof value === 'number' 
+            ? value 
+            : parseFloat(String(value).replace(/[^0-9.]/g, '')) || 0;
+          if (numValue > 0) {
+            premiums[premiumRange.key as keyof typeof premiums] = numValue;
+          }
+        }
+      });
+    }
+    
+    console.log('[GOOGLE-SHEETS] Premium values read:', premiums);
+  } catch (premiumError: any) {
+    console.warn('[GOOGLE-SHEETS] Could not read premium values:', premiumError.message);
+    // Don't fail the whole operation if premium reading fails
+  }
+
   return {
     sheetUrl,
     sheetId: spreadsheetId,
+    premiums,
   };
 }
