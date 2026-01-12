@@ -89,8 +89,8 @@ function getSheetsClientServiceAccount() {
 }
 
 // Template spreadsheet ID and GID
-const TEMPLATE_SPREADSHEET_ID = '1s1TPutLRXG2DXzm3JEfzUfyCeCgbM8ZonL8ZArQ-Z1E';
-const TEMPLATE_GID = '1011707972';
+const TEMPLATE_SPREADSHEET_ID = '1XyIgmjERyh9yTni6ZuoEpIc7rwGU4bQooMlQG1S57sI';
+const TEMPLATE_GID = '704674692';
 
 // Destination folder ID in Rohit's Drive (where new sheets will be saved)
 // Folder: https://drive.google.com/drive/folders/1Ymt9O6_CyvCN71VEyMyXrF6kHRaRMOcG
