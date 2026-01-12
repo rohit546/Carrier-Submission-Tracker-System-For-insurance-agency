@@ -202,64 +202,39 @@ export async function createNovataeSheet(
     totalPremium?: number;
   };
 }> {
-  const { sheets } = getSheetsClient();
+  const { sheets, drive } = getSheetsClient();
   const address = parseAddress(insuredInfo.address);
   // Add timestamp to make sheet name unique (handles multiple submissions same day)
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const newSheetTitle = `${insuredInfo.corporationName || 'Submission'} - ${timestamp}`;
 
-  // Step 1: Create a new sheet tab in the existing template spreadsheet
-  // This duplicates the template sheet tab with all formulas/formatting
-  let newSheetId: number;
+  // Step 1: Copy the entire template spreadsheet to create a new file
+  // Using domain-wide delegation, this will use rohit@mckinneyandco.com's storage
+  let newSpreadsheetId: string;
   try {
-    // Duplicate the template sheet tab within the same spreadsheet
-    const duplicateResponse = await sheets.spreadsheets.sheets.copyTo({
-      spreadsheetId: TEMPLATE_SPREADSHEET_ID,
-      sheetId: parseInt(TEMPLATE_GID),
+    const copyResponse = await drive.files.copy({
+      fileId: TEMPLATE_SPREADSHEET_ID,
       requestBody: {
-        destinationSpreadsheetId: TEMPLATE_SPREADSHEET_ID, // Same spreadsheet
+        name: newSheetTitle,
+        // Save to destination folder if configured
+        ...(DESTINATION_FOLDER_ID && { parents: [DESTINATION_FOLDER_ID] }),
       },
     });
 
-    newSheetId = duplicateResponse.data.sheetId || parseInt(TEMPLATE_GID);
+    newSpreadsheetId = copyResponse.data.id || '';
     
-    if (!newSheetId) {
-      throw new Error('Failed to create new sheet tab - no sheet ID returned');
+    if (!newSpreadsheetId) {
+      throw new Error('Failed to copy spreadsheet - no ID returned');
     }
 
-    // Rename the new sheet tab
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: TEMPLATE_SPREADSHEET_ID,
-      requestBody: {
-        requests: [
-          {
-            updateSheetProperties: {
-              properties: {
-                sheetId: newSheetId,
-                title: newSheetTitle,
-              },
-              fields: 'title',
-            },
-          },
-        ],
-      },
-    });
-
-    console.log('[GOOGLE-SHEETS] New sheet tab created successfully:', newSheetTitle, 'Sheet ID:', newSheetId);
+    console.log('[GOOGLE-SHEETS] New spreadsheet created:', newSheetTitle, 'ID:', newSpreadsheetId);
   } catch (createError: any) {
-    console.error('[GOOGLE-SHEETS] Error creating sheet tab:', createError);
-    
-    // If we can't create a new tab, fall back to writing directly to the template sheet
-    if (createError.message?.includes('permission') || createError.message?.includes('access')) {
-      console.log('[GOOGLE-SHEETS] Cannot create new tab, will write to template sheet directly (will overwrite existing data)');
-      newSheetId = parseInt(TEMPLATE_GID);
-    } else {
-      throw new Error(`Failed to create sheet tab: ${createError.message || 'Unknown error'}. Make sure the service account has Editor access to the template sheet.`);
-    }
+    console.error('[GOOGLE-SHEETS] Error copying spreadsheet:', createError);
+    throw new Error(`Failed to copy spreadsheet: ${createError.message || 'Unknown error'}. Make sure domain-wide delegation is configured correctly.`);
   }
 
-  // Use the template spreadsheet ID (we're adding a tab to it, not copying)
-  const spreadsheetId = TEMPLATE_SPREADSHEET_ID;
+  // Use the new spreadsheet ID
+  const spreadsheetId = newSpreadsheetId;
 
   // Step 2: Prepare data to write
   // Based on screenshot: Column A = Labels, Column B = Input values
@@ -450,37 +425,26 @@ export async function createNovataeSheet(
     });
   }
 
-  // Step 3: Write all values to the new sheet tab
+  // Step 3: Write all values to the new spreadsheet (keep 'Rating!' since it's a copy)
   if (values.length > 0) {
-    // Update all ranges to use the new sheet name
-    // Sheet names with spaces or special characters need to be quoted
-    const escapedSheetName = newSheetTitle.includes(' ') || newSheetTitle.includes('-') 
-      ? `'${newSheetTitle}'` 
-      : newSheetTitle;
-    
-    const updatedValues = values.map(v => ({
-      range: v.range.replace('Rating!', `${escapedSheetName}!`),
-      values: v.values,
-    }));
-
-    console.log('[GOOGLE-SHEETS] Writing to ranges:', updatedValues.map(v => `${v.range} = ${v.values[0][0]}`).join(', '));
+    console.log('[GOOGLE-SHEETS] Writing to ranges:', values.map(v => `${v.range} = ${v.values[0][0]}`).join(', '));
 
     const response = await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: spreadsheetId,
       requestBody: {
         valueInputOption: 'USER_ENTERED',
-        data: updatedValues,
+        data: values, // Use original 'Rating!' ranges since it's a new spreadsheet copy
       },
     });
     
-    console.log('[GOOGLE-SHEETS] Successfully wrote', updatedValues.length, 'data ranges to sheet:', newSheetTitle);
+    console.log('[GOOGLE-SHEETS] Successfully wrote', values.length, 'data ranges to spreadsheet:', newSheetTitle);
     console.log('[GOOGLE-SHEETS] Response:', JSON.stringify(response.data, null, 2));
   }
 
-  // URL points to the template spreadsheet with the new sheet tab
-  const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${newSheetId}`;
+  // URL points to the new spreadsheet
+  const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${TEMPLATE_GID}`;
 
-  console.log('[GOOGLE-SHEETS] Sheet tab created/updated successfully:', sheetUrl);
+  console.log('[GOOGLE-SHEETS] New spreadsheet created successfully:', sheetUrl);
 
   // Step 4: Read premium values from the sheet (wait a bit for formulas to calculate)
   const premiums: {
@@ -494,16 +458,12 @@ export async function createNovataeSheet(
     // Wait 2 seconds for formulas to calculate
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    const escapedSheetName = newSheetTitle.includes(' ') || newSheetTitle.includes('-') 
-      ? `'${newSheetTitle}'` 
-      : newSheetTitle;
-    
-    // Read premium values
+    // Read premium values from 'Rating' sheet (since it's a new spreadsheet copy)
     const premiumRanges = [
-      { range: `${escapedSheetName}!F80`, key: 'totalGLPremium' },
-      { range: `${escapedSheetName}!F93`, key: 'totalPropertyPremium' },
-      { range: `${escapedSheetName}!F104`, key: 'optionalTotalPremium' },
-      { range: `${escapedSheetName}!F117`, key: 'totalPremium' },
+      { range: 'Rating!F80', key: 'totalGLPremium' },
+      { range: 'Rating!F93', key: 'totalPropertyPremium' },
+      { range: 'Rating!F104', key: 'optionalTotalPremium' },
+      { range: 'Rating!F117', key: 'totalPremium' },
     ];
     
     const premiumResponse = await sheets.spreadsheets.values.batchGet({
