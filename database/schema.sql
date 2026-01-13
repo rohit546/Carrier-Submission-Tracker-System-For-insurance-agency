@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS carrier_quotes (
   submission_id UUID NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
   carrier_id UUID NOT NULL REFERENCES carriers(id),
   quoted BOOLEAN DEFAULT FALSE,
+  lob VARCHAR(255),
   amount DECIMAL(10, 2),
   remarks TEXT DEFAULT '',
   selected BOOLEAN DEFAULT FALSE,

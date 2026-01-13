@@ -7,7 +7,70 @@ import { Submission, BusinessType, Carrier, CarrierQuote, InsuredInformation } f
 import InsuredInfoSection from './InsuredInfoSection';
 import AutoSubmitModal, { CarrierType } from './AutoSubmitModal';
 import AutomationStatusModal from './AutomationStatusModal';
-import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send, Rocket, Activity } from 'lucide-react';
+import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send, Rocket, Activity, Search } from 'lucide-react';
+
+// Line of Business (LOB) options
+const LOB_OPTIONS = [
+  'Flood',
+  'Genl Liability',
+  'Liquor Liability',
+  'Wind policies',
+  'Abuse & Molestation',
+  'Abusive Acts Liability',
+  'Accidental D&D',
+  'Accidental Medical Coverage',
+  'Active Assailant',
+  'Active Shooter',
+  'Auto Commercial',
+  'Automobile Liability',
+  'Bonds Miscellaneous',
+  'BOP',
+  'BOP & Umbrella - Comm',
+  'Builder risk (Homeowner)',
+  'Builder\'s Risk',
+  'Business Owner Policy',
+  'Commercial Pkg',
+  'Commercial Property',
+  'Commercial Prpty Carwash',
+  'Crime',
+  'Cyber',
+  'Disability',
+  'Dwelling Fire',
+  'Empl Practices Liab',
+  'Employers Liability',
+  'EPLI',
+  'Equipment Breakdown',
+  'Errors and Omissions',
+  'Event Liability',
+  'Excess Flood',
+  'Excess Liability',
+  'Excess Umbrella',
+  'Farm Fire',
+  'Fire Arms Liability',
+  'Garage and Dealers',
+  'GL',
+  'Inland Marine',
+  'Jewelers Block',
+  'Kidnap',
+  'Kidnap and Ransom',
+  'License & Permit',
+  'Miscellaneous',
+  'Named Storm Coverage',
+  'Package',
+  'Performance Bond',
+  'Pollution Liability',
+  'Professional Liab',
+  'Property',
+  'Sexual Molestation',
+  'Shooting',
+  'Surety Bond',
+  'Terrorism',
+  'Umbrella',
+  'Vacant Property',
+  'Wind Buy Back',
+  'Wind Policy',
+  'Worker\'s Compensation',
+].sort(); // Sort alphabetically for easier navigation
 
 interface CarrierAppetiteDetail {
   id: string;
@@ -38,6 +101,8 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   const [loadingAppetite, setLoadingAppetite] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{ success?: boolean; message?: string } | null>(null);
+  const [lobSearchTerms, setLobSearchTerms] = useState<{ [carrierId: string]: string }>({});
+  const [lobDropdownOpen, setLobDropdownOpen] = useState<{ [carrierId: string]: boolean }>({});
   const router = useRouter();
 
   useEffect(() => {
@@ -168,6 +233,13 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
     return localCarriers.find(c => c.carrierId === carrierId) || null;
   };
 
+  // Get filtered LOB options based on search term
+  const getFilteredLOBs = (carrierId: string) => {
+    const searchTerm = (lobSearchTerms[carrierId] || '').toLowerCase();
+    if (!searchTerm) return LOB_OPTIONS;
+    return LOB_OPTIONS.filter(lob => lob.toLowerCase().includes(searchTerm));
+  };
+
   // Update local state only (no auto-save)
   function updateCarrierQuote(carrierId: string, updates: Partial<CarrierQuote>) {
     const existing = localCarriers.find(c => c.carrierId === carrierId);
@@ -176,7 +248,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
       ? localCarriers.map(c =>
           c.carrierId === carrierId ? { ...c, ...updates } : c
         )
-      : [...localCarriers, { carrierId, quoted: false, amount: null, remarks: '', selected: false, ...updates }];
+      : [...localCarriers, { carrierId, quoted: false, lob: undefined, amount: null, remarks: '', selected: false, ...updates }];
     
     setLocalCarriers(newCarriers);
     setSaved(false);
@@ -564,6 +636,77 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
 
                   {/* Quote Section - Always visible, compact */}
                   <div className="border-t border-gray-200 pt-2 space-y-2 mt-auto">
+                    {/* LOB Dropdown - Searchable */}
+                    <div className="relative">
+                      <label className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-0.5">
+                        <Info className="w-3 h-3" />
+                        LOB (Line of Business)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={
+                            lobSearchTerms[carrier.id] !== undefined && lobSearchTerms[carrier.id] !== ''
+                              ? lobSearchTerms[carrier.id]
+                              : (quote?.lob || '')
+                          }
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setLobSearchTerms(prev => ({ ...prev, [carrier.id]: value }));
+                            setLobDropdownOpen(prev => ({ ...prev, [carrier.id]: true }));
+                            // Allow free text entry - update immediately
+                            updateCarrierQuote(carrier.id, { lob: value });
+                          }}
+                          onFocus={() => {
+                            // When focusing, initialize search term with current value for filtering
+                            const currentLob = quote?.lob || '';
+                            setLobSearchTerms(prev => ({ ...prev, [carrier.id]: currentLob }));
+                            setLobDropdownOpen(prev => ({ ...prev, [carrier.id]: true }));
+                          }}
+                          onBlur={() => {
+                            // Delay closing to allow click on dropdown item
+                            setTimeout(() => {
+                              setLobDropdownOpen(prev => ({ ...prev, [carrier.id]: false }));
+                              // Clear search term so saved value shows
+                              setLobSearchTerms(prev => {
+                                const newState = { ...prev };
+                                delete newState[carrier.id];
+                                return newState;
+                              });
+                            }, 200);
+                          }}
+                          className="input-field text-sm py-1 px-2 pr-8 w-full"
+                          placeholder="Search or type LOB..."
+                        />
+                        <Search className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+                        {lobDropdownOpen[carrier.id] && getFilteredLOBs(carrier.id).length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-sm shadow-lg max-h-60 overflow-y-auto">
+                            {getFilteredLOBs(carrier.id).map((lob) => (
+                              <button
+                                key={lob}
+                                type="button"
+                                onMouseDown={(e) => {
+                                  // Use onMouseDown to prevent onBlur from firing first
+                                  e.preventDefault();
+                                  updateCarrierQuote(carrier.id, { lob });
+                                  // Clear search term so the selected value shows
+                                  setLobSearchTerms(prev => {
+                                    const newState = { ...prev };
+                                    delete newState[carrier.id];
+                                    return newState;
+                                  });
+                                  setLobDropdownOpen(prev => ({ ...prev, [carrier.id]: false }));
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                              >
+                                {lob}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <div>
                       <label className="flex items-center gap-1 text-xs font-medium text-gray-700 mb-0.5">
                         <DollarSign className="w-3 h-3" />

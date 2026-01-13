@@ -118,6 +118,7 @@ export interface RpaTaskStatus {
 export interface CarrierQuote {
   carrierId: string;
   quoted: boolean;
+  lob?: string; // Line of Business
   amount: number | null;
   remarks: string;
   selected: boolean;

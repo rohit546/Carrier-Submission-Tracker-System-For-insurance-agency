@@ -229,6 +229,7 @@ export async function getSubmissions(): Promise<Submission[]> {
           json_build_object(
             'carrierId', cq.carrier_id,
             'quoted', cq.quoted,
+            'lob', cq.lob,
             'amount', cq.amount,
             'remarks', cq.remarks,
             'selected', cq.selected
@@ -310,6 +311,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
             json_build_object(
               'carrierId', cq.carrier_id,
               'quoted', cq.quoted,
+              'lob', cq.lob,
               'amount', cq.amount,
               'remarks', cq.remarks,
               'selected', cq.selected
@@ -343,6 +345,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
             json_build_object(
               'carrierId', cq.carrier_id,
               'quoted', cq.quoted,
+              'lob', cq.lob,
               'amount', cq.amount,
               'remarks', cq.remarks,
               'selected', cq.selected
@@ -611,11 +614,12 @@ export async function updateSubmission(id: string, updates: Partial<Submission>)
     await sql`DELETE FROM carrier_quotes WHERE submission_id = ${id}`;
     for (const quote of updates.carriers) {
       await sql`
-        INSERT INTO carrier_quotes (submission_id, carrier_id, quoted, amount, remarks, selected)
-        VALUES (${id}, ${quote.carrierId}, ${quote.quoted}, ${quote.amount}, ${quote.remarks || ''}, ${quote.selected})
+        INSERT INTO carrier_quotes (submission_id, carrier_id, quoted, lob, amount, remarks, selected)
+        VALUES (${id}, ${quote.carrierId}, ${quote.quoted}, ${quote.lob || null}, ${quote.amount}, ${quote.remarks || ''}, ${quote.selected})
         ON CONFLICT (submission_id, carrier_id)
         DO UPDATE SET
           quoted = ${quote.quoted},
+          lob = ${quote.lob || null},
           amount = ${quote.amount},
           remarks = ${quote.remarks || ''},
           selected = ${quote.selected}
