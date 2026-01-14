@@ -77,6 +77,7 @@ export interface Submission {
   createdAt: string;
   updatedAt: string;
   status: 'draft' | 'quoted' | 'bound' | 'submitted';
+  quotedBy?: string;
   carriers: CarrierQuote[];
   insuredInfoId?: string;
   insuredInfoSnapshot?: InsuredInformation | any;

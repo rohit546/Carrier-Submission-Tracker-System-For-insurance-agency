@@ -103,7 +103,31 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   const [submitStatus, setSubmitStatus] = useState<{ success?: boolean; message?: string } | null>(null);
   const [lobSearchTerms, setLobSearchTerms] = useState<{ [carrierId: string]: string }>({});
   const [lobDropdownOpen, setLobDropdownOpen] = useState<{ [carrierId: string]: boolean }>({});
+  const [quotedBy, setQuotedBy] = useState<string>(submission.quotedBy || '');
   const router = useRouter();
+  
+  // Quoted by options
+  const QUOTED_BY_OPTIONS = [
+    'Amber',
+    'Ana',
+    'Zara',
+    'Munira',
+    'Sana',
+    'Tanya',
+    'Tej',
+    'Raabel',
+    'Razia',
+    'Shahnaz',
+    'IBAD',
+    'Shahmir',
+    'Arzu',
+    'Arish',
+    'Ali Zain',
+    'Ali Sajwani',
+    'Amir',
+    'Karim',
+    'mazhar'
+  ];
 
   useEffect(() => {
     loadData();
@@ -136,6 +160,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
       if (updatedSubmission) {
         setSubmission(updatedSubmission);
         setLocalCarriers(updatedSubmission.carriers || []);
+        setQuotedBy(updatedSubmission.quotedBy || '');
         
         // If no insured info snapshot but has insured_info_id, fetch it
         if (!updatedSubmission.insuredInfoSnapshot && updatedSubmission.insuredInfoId) {
@@ -262,7 +287,8 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           carriers: localCarriers,
-          status: submission.status === 'draft' ? 'draft' : submission.status
+          status: submission.status === 'draft' ? 'draft' : submission.status,
+          quotedBy: quotedBy || null
         }),
       });
 
@@ -270,6 +296,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         const updated = await res.json();
         setSubmission(updated);
         setLocalCarriers(updated.carriers || []);
+        setQuotedBy(updated.quotedBy || '');
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       }
@@ -774,23 +801,47 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
               {saved && <span className="text-green-600 font-medium">✓ Saved!</span>}
               {!saved && <span>Make changes and click Save</span>}
             </div>
-            <button
-              onClick={saveSubmission}
-              disabled={saving}
-              className="btn-primary flex items-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <>
-                  <span className="animate-spin">⏳</span>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-4">
+              {/* Quoted by dropdown */}
+              <div className="flex items-center gap-2">
+                <label htmlFor="quoted-by" className="text-sm text-gray-700 font-medium">
+                  Quoted by:
+                </label>
+                <select
+                  id="quoted-by"
+                  value={quotedBy}
+                  onChange={(e) => {
+                    setQuotedBy(e.target.value);
+                    setSaved(false);
+                  }}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select...</option>
+                  {QUOTED_BY_OPTIONS.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={saveSubmission}
+                disabled={saving}
+                className="btn-primary flex items-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

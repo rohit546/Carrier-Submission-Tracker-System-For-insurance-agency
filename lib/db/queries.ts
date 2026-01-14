@@ -218,6 +218,7 @@ export async function getSubmissions(): Promise<Submission[]> {
       s.created_at,
       s.updated_at,
       s.status,
+      s.quoted_by,
       s.insured_info_id,
       s.insured_info_snapshot,
       s.source,
@@ -239,7 +240,7 @@ export async function getSubmissions(): Promise<Submission[]> {
       ) as carriers
     FROM submissions s
     LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
-    GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token, s.rpa_tasks
+    GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.quoted_by, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token, s.rpa_tasks
     ORDER BY s.created_at DESC
   `;
   return rows.map(row => {
@@ -275,6 +276,7 @@ export async function getSubmissions(): Promise<Submission[]> {
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
       status: row.status as 'draft' | 'quoted' | 'bound' | 'submitted',
+      quotedBy: row.quoted_by || undefined,
       carriers: (row.carriers || []) as CarrierQuote[],
       insuredInfoId: row.insured_info_id,
       insuredInfoSnapshot: insuredInfoSnapshot,
@@ -300,6 +302,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
         s.created_at,
         s.updated_at,
         s.status,
+        s.quoted_by,
         s.insured_info_id,
         s.insured_info_snapshot,
         s.source,
@@ -322,7 +325,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
       FROM submissions s
       LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
       WHERE s.id = ${id} AND s.public_access_token = ${publicToken}
-      GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token, s.rpa_tasks
+      GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.quoted_by, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token, s.rpa_tasks
     `;
   } else {
     query = sql`
@@ -334,6 +337,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
         s.created_at,
         s.updated_at,
         s.status,
+        s.quoted_by,
         s.insured_info_id,
         s.insured_info_snapshot,
         s.source,
@@ -356,7 +360,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
       FROM submissions s
       LEFT JOIN carrier_quotes cq ON s.id = cq.submission_id
       WHERE s.id = ${id}
-      GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token, s.rpa_tasks
+      GROUP BY s.id, s.business_name, s.business_type_id, s.agent_id, s.created_at, s.updated_at, s.status, s.quoted_by, s.insured_info_id, s.insured_info_snapshot, s.source, s.eform_submission_id, s.public_access_token, s.rpa_tasks
     `;
   }
   
@@ -396,6 +400,7 @@ export async function getSubmission(id: string, publicToken?: string): Promise<S
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     status: row.status as 'draft' | 'quoted' | 'bound' | 'submitted',
+    quotedBy: row.quoted_by || undefined,
     carriers: (row.carriers || []) as CarrierQuote[],
     insuredInfoId: row.insured_info_id,
     insuredInfoSnapshot: insuredInfoSnapshot,
@@ -627,8 +632,35 @@ export async function updateSubmission(id: string, updates: Partial<Submission>)
     }
   }
 
-  // Build UPDATE query conditionally
-  if (updates.businessName !== undefined && updates.status !== undefined && updates.businessTypeId !== undefined) {
+  // Build UPDATE query - handle status and quotedBy together (common case from save)
+  if (updates.status !== undefined && updates.quotedBy !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET status = ${updates.status}, 
+          quoted_by = ${updates.quotedBy || null},
+          updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.businessName !== undefined && updates.status !== undefined && updates.businessTypeId !== undefined && updates.quotedBy !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET business_name = ${updates.businessName}, 
+          status = ${updates.status}, 
+          business_type_id = ${updates.businessTypeId || null},
+          quoted_by = ${updates.quotedBy || null},
+          updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.businessName !== undefined && updates.status !== undefined && updates.quotedBy !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET business_name = ${updates.businessName}, 
+          status = ${updates.status}, 
+          quoted_by = ${updates.quotedBy || null},
+          updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.businessName !== undefined && updates.status !== undefined && updates.businessTypeId !== undefined) {
     await sql`
       UPDATE submissions
       SET business_name = ${updates.businessName}, 
@@ -640,7 +672,9 @@ export async function updateSubmission(id: string, updates: Partial<Submission>)
   } else if (updates.businessName !== undefined && updates.status !== undefined) {
     await sql`
       UPDATE submissions
-      SET business_name = ${updates.businessName}, status = ${updates.status}, updated_at = NOW()
+      SET business_name = ${updates.businessName}, 
+          status = ${updates.status}, 
+          updated_at = NOW()
       WHERE id = ${id}
     `;
   } else if (updates.businessName !== undefined && updates.businessTypeId !== undefined) {
@@ -662,19 +696,29 @@ export async function updateSubmission(id: string, updates: Partial<Submission>)
   } else if (updates.businessName !== undefined) {
     await sql`
       UPDATE submissions
-      SET business_name = ${updates.businessName}, updated_at = NOW()
+      SET business_name = ${updates.businessName}, 
+          updated_at = NOW()
       WHERE id = ${id}
     `;
   } else if (updates.status !== undefined) {
     await sql`
       UPDATE submissions
-      SET status = ${updates.status}, updated_at = NOW()
+      SET status = ${updates.status}, 
+          updated_at = NOW()
       WHERE id = ${id}
     `;
   } else if (updates.businessTypeId !== undefined) {
     await sql`
       UPDATE submissions
-      SET business_type_id = ${updates.businessTypeId || null}, updated_at = NOW()
+      SET business_type_id = ${updates.businessTypeId || null}, 
+          updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  } else if (updates.quotedBy !== undefined) {
+    await sql`
+      UPDATE submissions
+      SET quoted_by = ${updates.quotedBy || null}, 
+          updated_at = NOW()
       WHERE id = ${id}
     `;
   } else if (updates.carriers !== undefined) {

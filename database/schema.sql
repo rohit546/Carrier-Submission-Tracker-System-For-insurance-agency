@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS submissions (
   business_type_id UUID NOT NULL REFERENCES business_types(id),
   agent_id UUID NOT NULL REFERENCES users(id),
   status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'quoted', 'bound', 'submitted')),
+  quoted_by VARCHAR(255),
   carriers_data JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
