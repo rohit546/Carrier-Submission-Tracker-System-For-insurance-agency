@@ -251,7 +251,112 @@ export async function createNovataeSheet(
   // Use the new spreadsheet ID
   const spreadsheetId = newSpreadsheetId;
 
-  // Step 2: Prepare data to write
+  // Step 2: CLEAR all input cells first to remove any leftover test data from template
+  // This ensures formulas only use the new data we're about to write
+  console.log('[GOOGLE-SHEETS] Clearing all input cells to remove template test data...');
+  // IMPORTANT: Only clear INPUT cells (column C for limits, column F for GL exposures)
+  // DO NOT clear column D (rates) or column E (premiums) - these have formulas!
+  // Property Coverage section is at rows 82-93, NOT 30-37!
+  const cellsToClear = [
+    'Rating!C5',  // Named Insured
+    'Rating!C6',  // DBA
+    'Rating!C7',  // Mailing Address (if exists)
+    'Rating!C8',  // Location Address
+    'Rating!C9',  // Effective Date
+    'Rating!C24', // Year Built
+    'Rating!C27', // State
+    'Rating!C28', // Territory
+    // Property Coverage INPUT cells (rows 30-37)
+    'Rating!C30', // Building
+    'Rating!C31', // Business Personal Property
+    'Rating!C33', // Business Income
+    'Rating!C34', // Pumps
+    'Rating!C36', // Canopies
+    'Rating!C37', // Signs
+    // GL Exposures
+    'Rating!F5',  // Liquor Sales
+    'Rating!F16', // Gasoline Gallons
+    'Rating!F19', // Inside Sales
+    // DO NOT clear D or E columns - they contain rate formulas!
+  ];
+  
+  try {
+    // Use batchClear API which properly clears cells (better than writing empty strings)
+    // This removes both values and formatting, ensuring clean slate
+    await sheets.spreadsheets.values.batchClear({
+      spreadsheetId: spreadsheetId,
+      requestBody: {
+        ranges: cellsToClear,
+      },
+    });
+    console.log('[GOOGLE-SHEETS] Cleared', cellsToClear.length, 'input cells using batchClear');
+    
+    // Wait longer for formulas to recalculate with cleared values
+    console.log('[GOOGLE-SHEETS] Waiting for formulas to recalculate after clearing...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Check Property Total BEFORE writing new data (should be $0 or very low after clearing)
+    const beforeWriteResponse = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: spreadsheetId,
+      ranges: [
+        'Rating!C30', // Building
+        'Rating!C31', // BPP
+        'Rating!C33', // Business Income
+        'Rating!F16', // Gasoline Gallons
+        'Rating!F19', // Inside Sales
+        'Rating!F93', // Property Total (should be low/zero after clearing)
+      ],
+    });
+    
+    const beforeValues = beforeWriteResponse.data.valueRanges?.map(vr => {
+      const val = vr.values?.[0]?.[0];
+      return val ? (typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0) : 0;
+    });
+    
+    console.log('[GOOGLE-SHEETS] Values AFTER clearing (before writing new data):');
+    console.log('  C30 (Building):', beforeValues?.[0] || 'EMPTY');
+    console.log('  C31 (BPP):', beforeValues?.[1] || 'EMPTY');
+    console.log('  C33 (BI):', beforeValues?.[2] || 'EMPTY');
+    console.log('  F16 (Gallons):', beforeValues?.[3] || 'EMPTY');
+    console.log('  F19 (Sales):', beforeValues?.[4] || 'EMPTY');
+    console.log('  F93 (Property Total):', beforeValues?.[5] || 'EMPTY');
+    
+    if (beforeValues?.[5] && beforeValues[5] > 1000) {
+      console.error('[GOOGLE-SHEETS] ⚠️ WARNING: Property Total (F93) is still high after clearing:', beforeValues[5]);
+      console.error('[GOOGLE-SHEETS] This suggests cells were not properly cleared or template has bad formulas!');
+    }
+    
+  } catch (clearError: any) {
+    console.error('[GOOGLE-SHEETS] Error clearing cells:', clearError.message);
+    // Try fallback: write zeros instead of clearing
+    console.log('[GOOGLE-SHEETS] Attempting fallback: writing zeros to cells...');
+    try {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: spreadsheetId,
+        requestBody: {
+          valueInputOption: 'USER_ENTERED',
+          data: [
+            { range: 'Rating!C30', values: [[0]] },
+            { range: 'Rating!C31', values: [[0]] },
+            { range: 'Rating!C33', values: [[0]] },
+            { range: 'Rating!C34', values: [[0]] },
+            { range: 'Rating!C36', values: [[0]] },
+            { range: 'Rating!C37', values: [[0]] },
+            { range: 'Rating!F5', values: [[0]] },
+            { range: 'Rating!F16', values: [[0]] },
+            { range: 'Rating!F19', values: [[0]] },
+          ],
+        },
+      });
+      console.log('[GOOGLE-SHEETS] Fallback: Wrote zeros to key cells');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (fallbackError: any) {
+      console.warn('[GOOGLE-SHEETS] Fallback also failed:', fallbackError.message);
+      // Continue anyway - better to have some data than none
+    }
+  }
+
+  // Step 3: Prepare data to write
   // Based on screenshot: Column A = Labels, Column B = Input values
   const values: { range: string; values: any[][] }[] = [];
 
@@ -329,17 +434,22 @@ export async function createNovataeSheet(
     values: [[territory]],
   });
 
-  // Row 30: Building (C30) - from propertyCoverage, leave empty if not available
+  // PROPERTY COVERAGE INPUT SECTION - rows 30-37
+  // C30 = Building, C31 = BPP, C33 = Business Income, C34 = Pumps, C36 = Canopies, C37 = Signs
+  
+  // Row 30: Building (C30)
   if (propertyCoverage?.building || propertyCoverage?.Building) {
     const buildingValue = propertyCoverage.building || propertyCoverage.Building;
     const buildingNumber = typeof buildingValue === 'number'
       ? buildingValue
       : parseFloat(String(buildingValue).replace(/[^0-9.]/g, '')) || 0;
+    
     if (buildingNumber > 0) {
       values.push({
         range: 'Rating!C30',
         values: [[buildingNumber]],
       });
+      console.log('[GOOGLE-SHEETS] Mapping Building to C30:', buildingNumber);
     }
   }
 
@@ -349,10 +459,13 @@ export async function createNovataeSheet(
     const bppNumber = typeof bppValue === 'number'
       ? bppValue
       : parseFloat(String(bppValue).replace(/[^0-9.]/g, '')) || 0;
-    values.push({
-      range: 'Rating!C31',
-      values: [[bppNumber]],
-    });
+    if (bppNumber > 0) {
+      values.push({
+        range: 'Rating!C31',
+        values: [[bppNumber]],
+      });
+      console.log('[GOOGLE-SHEETS] Mapping BPP to C31:', bppNumber);
+    }
   }
 
   // Row 33: Business Income (C33)
@@ -361,10 +474,13 @@ export async function createNovataeSheet(
     const biNumber = typeof biValue === 'number'
       ? biValue
       : parseFloat(String(biValue).replace(/[^0-9.]/g, '')) || 0;
-    values.push({
-      range: 'Rating!C33',
-      values: [[biNumber]],
-    });
+    if (biNumber > 0) {
+      values.push({
+        range: 'Rating!C33',
+        values: [[biNumber]],
+      });
+      console.log('[GOOGLE-SHEETS] Mapping Business Income to C33:', biNumber);
+    }
   }
 
   // Row 34: Pumps (C34)
@@ -372,10 +488,13 @@ export async function createNovataeSheet(
     const pumpsValue = typeof propertyCoverage.pumps === 'number'
       ? propertyCoverage.pumps
       : parseFloat(String(propertyCoverage.pumps).replace(/[^0-9.]/g, '')) || 0;
-    values.push({
-      range: 'Rating!C34',
-      values: [[pumpsValue]],
-    });
+    if (pumpsValue > 0) {
+      values.push({
+        range: 'Rating!C34',
+        values: [[pumpsValue]],
+      });
+      console.log('[GOOGLE-SHEETS] Mapping Pumps to C34:', pumpsValue);
+    }
   }
 
   // Row 36: Canopies (C36)
@@ -384,10 +503,13 @@ export async function createNovataeSheet(
     const canopyNumber = typeof canopyValue === 'number'
       ? canopyValue
       : parseFloat(String(canopyValue).replace(/[^0-9.]/g, '')) || 0;
-    values.push({
-      range: 'Rating!C36',
-      values: [[canopyNumber]],
-    });
+    if (canopyNumber > 0) {
+      values.push({
+        range: 'Rating!C36',
+        values: [[canopyNumber]],
+      });
+      console.log('[GOOGLE-SHEETS] Mapping Canopies to C36:', canopyNumber);
+    }
   }
 
   // Row 37: Signs (C37)
@@ -395,10 +517,13 @@ export async function createNovataeSheet(
     const signsValue = typeof propertyCoverage.signs === 'number'
       ? propertyCoverage.signs
       : parseFloat(String(propertyCoverage.signs).replace(/[^0-9.]/g, '')) || 0;
-    values.push({
-      range: 'Rating!C37',
-      values: [[signsValue]],
-    });
+    if (signsValue > 0) {
+      values.push({
+        range: 'Rating!C37',
+        values: [[signsValue]],
+      });
+      console.log('[GOOGLE-SHEETS] Mapping Signs to C37:', signsValue);
+    }
   }
 
   // General Liability Section
@@ -422,10 +547,23 @@ export async function createNovataeSheet(
     const gallonsNumber = typeof gallonsValue === 'number'
       ? gallonsValue
       : parseFloat(String(gallonsValue).replace(/[^0-9.]/g, '')) || 0;
-    values.push({
-      range: 'Rating!F16',
-      values: [[gallonsNumber]],
-    });
+    
+    // Validation: Gasoline gallons should be reasonable (typically 10K-500K gallons/year)
+    if (gallonsNumber > 1000000) {
+      console.warn('[GOOGLE-SHEETS] WARNING: Gasoline gallons seems too high:', gallonsNumber, '- This might be dollars instead of gallons!');
+      // Cap at reasonable maximum to prevent premium explosion
+      const cappedGallons = Math.min(gallonsNumber, 1000000);
+      console.warn('[GOOGLE-SHEETS] Capping at 1,000,000 gallons');
+      values.push({
+        range: 'Rating!F16',
+        values: [[cappedGallons]],
+      });
+    } else if (gallonsNumber > 0) {
+      values.push({
+        range: 'Rating!F16',
+        values: [[gallonsNumber]],
+      });
+    }
   }
 
   // Row 19: Inside Sales (F19) - Inside Sales (Annual)
@@ -434,15 +572,31 @@ export async function createNovataeSheet(
     const salesNumber = typeof salesValue === 'number'
       ? salesValue
       : parseFloat(String(salesValue).replace(/[^0-9.]/g, '')) || 0;
-    values.push({
-      range: 'Rating!F19',
-      values: [[salesNumber]],
-    });
+    
+    // Validation: Inside sales should be reasonable for a gas station/c-store (typically $100K-$5M/year)
+    if (salesNumber > 20000000) {
+      console.warn('[GOOGLE-SHEETS] WARNING: Inside sales seems too high:', salesNumber, '- Please verify this is correct!');
+      // Cap at reasonable maximum
+      const cappedSales = Math.min(salesNumber, 20000000);
+      console.warn('[GOOGLE-SHEETS] Capping at $20,000,000');
+      values.push({
+        range: 'Rating!F19',
+        values: [[cappedSales]],
+      });
+    } else if (salesNumber > 0) {
+      values.push({
+        range: 'Rating!F19',
+        values: [[salesNumber]],
+      });
+    }
   }
 
-  // Step 3: Write all values to the new spreadsheet (keep 'Rating!' since it's a copy)
+  // Step 4: Write all values to the new spreadsheet (keep 'Rating!' since it's a copy)
   if (values.length > 0) {
-    console.log('[GOOGLE-SHEETS] Writing to ranges:', values.map(v => `${v.range} = ${v.values[0][0]}`).join(', '));
+    console.log('[GOOGLE-SHEETS] Writing', values.length, 'values to spreadsheet:');
+    values.forEach(v => {
+      console.log(`  ${v.range} = ${v.values[0][0]} (type: ${typeof v.values[0][0]})`);
+    });
 
     const response = await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: spreadsheetId,
@@ -453,7 +607,50 @@ export async function createNovataeSheet(
     });
     
     console.log('[GOOGLE-SHEETS] Successfully wrote', values.length, 'data ranges to spreadsheet:', newSheetTitle);
-    console.log('[GOOGLE-SHEETS] Response:', JSON.stringify(response.data, null, 2));
+    
+    // Wait a moment for values to be written
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Verify what was actually written
+    const verifyRanges = values.slice(0, 5).map(v => v.range); // Check first 5 values
+    const verifyResponse = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: spreadsheetId,
+      ranges: verifyRanges,
+    });
+    
+    console.log('[GOOGLE-SHEETS] Verification - Values after writing:');
+    verifyRanges.forEach((range, idx) => {
+      const writtenValue = verifyResponse.data.valueRanges?.[idx]?.values?.[0]?.[0];
+      const expectedValue = values[idx].values[0][0];
+      console.log(`  ${range}: Expected=${expectedValue}, Actual=${writtenValue}`);
+    });
+    
+    // Check Property Total AFTER writing new data
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for formulas
+    const afterWriteResponse = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: spreadsheetId,
+      ranges: [
+        'Rating!F93', // Property Total
+        'Rating!F80', // GL Total
+        'Rating!F117', // Total Premium
+      ],
+    });
+    
+    const afterValues = afterWriteResponse.data.valueRanges?.map(vr => {
+      const val = vr.values?.[0]?.[0];
+      return val ? (typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0) : 0;
+    });
+    
+    console.log('[GOOGLE-SHEETS] Premium values AFTER writing new data:');
+    console.log('  F93 (Property Total):', afterValues?.[0] || 'EMPTY');
+    console.log('  F80 (GL Total):', afterValues?.[1] || 'EMPTY');
+    console.log('  F117 (Total Premium):', afterValues?.[2] || 'EMPTY');
+    
+    if (afterValues?.[0] && afterValues[0] > 1000000) {
+      console.error('[GOOGLE-SHEETS] ⚠️ ERROR: Property Total (F93) is too high:', afterValues[0]);
+      console.error('[GOOGLE-SHEETS] This indicates a problem with the data or template formulas!');
+      console.error('[GOOGLE-SHEETS] Please check the template spreadsheet for incorrect formulas or test data.');
+    }
   }
 
   // URL points to the new spreadsheet
@@ -461,7 +658,7 @@ export async function createNovataeSheet(
 
   console.log('[GOOGLE-SHEETS] New spreadsheet created successfully:', sheetUrl);
 
-  // Step 4: Read premium values from the sheet (wait a bit for formulas to calculate)
+  // Step 5: Read premium values from the sheet (wait a bit for formulas to calculate)
   const premiums: {
     totalGLPremium?: number;
     totalPropertyPremium?: number;
@@ -469,40 +666,145 @@ export async function createNovataeSheet(
     totalPremium?: number;
   } = {};
   
+  // Define premium ranges to read (must be before try block)
+  const premiumRanges = [
+    { range: 'Rating!F80', key: 'totalGLPremium' },
+    { range: 'Rating!F93', key: 'totalPropertyPremium' },
+    { range: 'Rating!F104', key: 'optionalTotalPremium' },
+    { range: 'Rating!F117', key: 'totalPremium' },
+  ];
+  
+  // First, let's check what formula is in F93 and what cells feed into it
   try {
-    // Wait 2 seconds for formulas to calculate
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Wait a moment for formulas to calculate after writing
+    await new Promise(resolve => setTimeout(resolve, 3000));
     
-    // Read premium values from 'Rating' sheet (since it's a new spreadsheet copy)
-    const premiumRanges = [
-      { range: 'Rating!F80', key: 'totalGLPremium' },
-      { range: 'Rating!F93', key: 'totalPropertyPremium' },
-      { range: 'Rating!F104', key: 'optionalTotalPremium' },
-      { range: 'Rating!F117', key: 'totalPremium' },
-    ];
-    
-    const premiumResponse = await sheets.spreadsheets.values.batchGet({
+    // Check the formula in F93
+    const formulaResponse = await sheets.spreadsheets.get({
       spreadsheetId: spreadsheetId,
-      ranges: premiumRanges.map(r => r.range),
+      ranges: ['Rating!F93'],
+      includeGridData: true,
     });
     
-    if (premiumResponse.data.valueRanges) {
-      premiumRanges.forEach((premiumRange, index) => {
-        const values = premiumResponse.data.valueRanges?.[index]?.values;
-        if (values && values[0] && values[0][0]) {
-          const value = values[0][0];
-          // Parse the value (might be a number or formatted string like "$1,234.56")
-          const numValue = typeof value === 'number' 
-            ? value 
-            : parseFloat(String(value).replace(/[^0-9.]/g, '')) || 0;
-          if (numValue > 0) {
-            premiums[premiumRange.key as keyof typeof premiums] = numValue;
-          }
-        }
+    const cellData = formulaResponse.data.sheets?.[0]?.data?.[0]?.rowData?.[92]?.values?.[5] as any; // Row 93 (0-indexed = 92), Column F (0-indexed = 5)
+    if (cellData) {
+      console.log('[GOOGLE-SHEETS] F93 (Property Total) formula:', cellData.formulaValue || 'No formula (calculated value)');
+      console.log('[GOOGLE-SHEETS] F93 effective value:', cellData.effectiveValue);
+      if (cellData.formulaValue) {
+        console.log('[GOOGLE-SHEETS] ⚠️ F93 FORMULA:', cellData.formulaValue);
+      }
+    }
+  } catch (formulaError: any) {
+    console.warn('[GOOGLE-SHEETS] Could not read F93 formula:', formulaError.message);
+  }
+  
+  // Check what values are in the cells that feed into Property Total
+  try {
+    const formulaResponse = await sheets.spreadsheets.get({
+      spreadsheetId: spreadsheetId,
+      ranges: ['Rating!F93'],
+      includeGridData: true,
+    });
+    
+    const cellData2 = formulaResponse.data.sheets?.[0]?.data?.[0]?.rowData?.[92]?.values?.[5] as any; // Row 93 (0-indexed = 92), Column F (0-indexed = 5)
+    if (cellData2?.effectiveValue) {
+      console.log('[GOOGLE-SHEETS] F93 (Property Total) formula:', cellData2.formulaValue || 'No formula');
+      console.log('[GOOGLE-SHEETS] F93 effective value:', cellData2.effectiveValue);
+      if (cellData2.formulaValue) {
+        console.log('[GOOGLE-SHEETS] F93 formula breakdown:', cellData2.formulaValue);
+      }
+    }
+  } catch (formulaError: any) {
+    console.warn('[GOOGLE-SHEETS] Could not read F93 formula:', formulaError.message);
+  }
+  
+  // Check what values are in the INPUT cells (rows 30-37) and CALCULATED values (rows 83-88)
+  try {
+    const propertyInputsResponse = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: spreadsheetId,
+      ranges: [
+        // INPUT cells (where we write values)
+        'Rating!C30', // Building input
+        'Rating!C31', // BPP input
+        'Rating!C33', // BI input
+        'Rating!C34', // Pumps input
+        'Rating!C36', // Canopies input
+        'Rating!C37', // Signs input
+        // CALCULATED values (formulas reference inputs above)
+        'Rating!D83', // Building rate
+        'Rating!D84', // BPP rate
+        'Rating!D85', // BI rate
+        'Rating!E83', // Building premium
+        'Rating!E84', // BPP premium
+        'Rating!E85', // BI premium
+      ],
+    });
+    
+    console.log('[GOOGLE-SHEETS] Property values debug:');
+    const propertyInputs = propertyInputsResponse.data.valueRanges || [];
+    const labels = ['C30 (Building INPUT)', 'C31 (BPP INPUT)', 'C33 (BI INPUT)', 'C34 (Pumps INPUT)', 'C36 (Canopies INPUT)', 'C37 (Signs INPUT)', 
+                    'D83 (Bld Rate)', 'D84 (BPP Rate)', 'D85 (BI Rate)', 'E83 (Bld Prem)', 'E84 (BPP Prem)', 'E85 (BI Prem)'];
+    labels.forEach((label, idx) => {
+      const val = propertyInputs[idx]?.values?.[0]?.[0];
+      console.log(`  ${label}:`, val || 'EMPTY');
+    });
+  } catch (inputError: any) {
+    console.warn('[GOOGLE-SHEETS] Could not read property inputs:', inputError.message);
+  }
+  
+  try {
+    // Wait longer for formulas to calculate (increased from 2 to 5 seconds)
+    // Complex insurance formulas with multiple dependencies need more time
+    console.log('[GOOGLE-SHEETS] Waiting for formulas to calculate...');
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    // Try reading multiple times to ensure formulas are stable
+    let attempts = 0;
+    let lastPremiums: { [key: string]: number } = {};
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      const premiumResponse = await sheets.spreadsheets.values.batchGet({
+        spreadsheetId: spreadsheetId,
+        ranges: premiumRanges.map(r => r.range),
       });
+      
+      const currentPremiums: { [key: string]: number } = {};
+      if (premiumResponse.data.valueRanges) {
+        premiumRanges.forEach((premiumRange, index) => {
+          const values = premiumResponse.data.valueRanges?.[index]?.values;
+          if (values && values[0] && values[0][0]) {
+            const value = values[0][0];
+            const numValue = typeof value === 'number' 
+              ? value 
+              : parseFloat(String(value).replace(/[^0-9.]/g, '')) || 0;
+            if (numValue > 0) {
+              currentPremiums[premiumRange.key] = numValue;
+            }
+          }
+        });
+      }
+      
+      // Check if values are stable (same as last read)
+      if (attempts > 0 && JSON.stringify(currentPremiums) === JSON.stringify(lastPremiums)) {
+        console.log('[GOOGLE-SHEETS] Premium values stable after', attempts + 1, 'reads');
+        Object.assign(premiums, currentPremiums);
+        break;
+      }
+      
+      lastPremiums = currentPremiums;
+      attempts++;
+      
+      if (attempts < maxAttempts) {
+        console.log('[GOOGLE-SHEETS] Formulas still calculating, waiting 2 more seconds...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } else {
+        // Use last read values even if not stable
+        Object.assign(premiums, currentPremiums);
+      }
     }
     
-    console.log('[GOOGLE-SHEETS] Premium values read:', premiums);
+    // The reading logic is now in the while loop above
   } catch (premiumError: any) {
     console.warn('[GOOGLE-SHEETS] Could not read premium values:', premiumError.message);
     // Don't fail the whole operation if premium reading fails
