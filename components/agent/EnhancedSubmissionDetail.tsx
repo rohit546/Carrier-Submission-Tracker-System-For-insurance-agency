@@ -497,6 +497,12 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         <InsuredInfoSection 
           insuredInfo={insuredInfo} 
           insuredInfoId={submission.insuredInfoId}
+          quotedBy={quotedBy}
+          setQuotedBy={(value) => {
+            setQuotedBy(value);
+            setSaved(false);
+          }}
+          quotedByOptions={QUOTED_BY_OPTIONS}
         />
       ) : submission.insuredInfoId ? (
         <div className="card p-6 mb-6 bg-yellow-50 border border-yellow-200">
@@ -802,28 +808,6 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
               {!saved && <span>Make changes and click Save</span>}
             </div>
             <div className="flex items-center gap-4">
-              {/* Quoted by dropdown */}
-              <div className="flex items-center gap-2">
-                <label htmlFor="quoted-by" className="text-sm text-gray-700 font-medium">
-                  Quoted by:
-                </label>
-                <select
-                  id="quoted-by"
-                  value={quotedBy}
-                  onChange={(e) => {
-                    setQuotedBy(e.target.value);
-                    setSaved(false);
-                  }}
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select...</option>
-                  {QUOTED_BY_OPTIONS.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </div>
               <button
                 onClick={saveSubmission}
                 disabled={saving}

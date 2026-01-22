@@ -73,6 +73,9 @@ interface InsuredInfoSectionProps {
   insuredInfoId?: string | null; // Pass the ID separately in case it's not in the snapshot
   isEditable?: boolean;
   onUpdate?: (data: Partial<InsuredInformation>) => void;
+  quotedBy?: string;
+  setQuotedBy?: (value: string) => void;
+  quotedByOptions?: string[];
 }
 
 // Helper function to normalize insured info (handle both camelCase and snake_case)
@@ -123,7 +126,15 @@ function normalizeInsuredInfo(data: any): InsuredInformation {
   };
 }
 
-export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEditable = true, onUpdate }: InsuredInfoSectionProps) {
+export default function InsuredInfoSection({ 
+  insuredInfo, 
+  insuredInfoId, 
+  isEditable = true, 
+  onUpdate,
+  quotedBy = '',
+  setQuotedBy,
+  quotedByOptions = []
+}: InsuredInfoSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<InsuredInformation>>({});
@@ -328,6 +339,27 @@ export default function InsuredInfoSection({ insuredInfo, insuredInfoId, isEdita
             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">From Eform</span>
           )}
         </div>
+        {/* Quoted by dropdown - highlighted */}
+        {setQuotedBy && quotedByOptions.length > 0 && (
+          <div className="flex items-center gap-2 bg-yellow-50 border-2 border-yellow-400 rounded-lg px-4 py-2 shadow-sm">
+            <label htmlFor="quoted-by" className="text-sm font-semibold text-gray-700">
+              Quoted by:
+            </label>
+            <select
+              id="quoted-by"
+              value={quotedBy}
+              onChange={(e) => setQuotedBy(e.target.value)}
+              className="px-3 py-1.5 border border-yellow-300 rounded-md text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            >
+              <option value="">Select...</option>
+              {quotedByOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {isEditable && (
           <div className="flex items-center gap-1">
             {isEditing ? (
