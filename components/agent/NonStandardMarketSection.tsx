@@ -81,8 +81,8 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
   }
 
   async function handleAddFollowup(nonStandardId: string, carrierEmail: string) {
-    if (!newFollowup.date || !newFollowup.type || !newFollowup.with || !newFollowup.notes) {
-      alert('Please fill in all fields');
+    if (!newFollowup.date || !newFollowup.notes) {
+      alert('Please fill in date and notes');
       return;
     }
 
@@ -365,31 +365,15 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
                                 onChange={(e) => setNewFollowup({ ...newFollowup, date: e.target.value })}
                                 className="input-field text-xs px-2 py-1"
                                 placeholder="Date & Time"
-                              />
-                              <select
-                                value={newFollowup.type || ''}
-                                onChange={(e) => setNewFollowup({ ...newFollowup, type: e.target.value as any })}
-                                className="input-field text-xs px-2 py-1"
-                              >
-                                <option value="">Type...</option>
-                                <option value="email">Email</option>
-                                <option value="phone">Phone</option>
-                                <option value="meeting">Meeting</option>
-                                <option value="note">Note</option>
-                              </select>
-                              <input
-                                type="text"
-                                placeholder="With (email/name)"
-                                value={newFollowup.with || ''}
-                                onChange={(e) => setNewFollowup({ ...newFollowup, with: e.target.value })}
-                                className="input-field text-xs px-2 py-1"
+                                required
                               />
                               <textarea
                                 placeholder="Notes"
                                 value={newFollowup.notes || ''}
                                 onChange={(e) => setNewFollowup({ ...newFollowup, notes: e.target.value })}
                                 className="input-field text-xs px-2 py-1"
-                                rows={2}
+                                rows={3}
+                                required
                               />
                               <div className="flex gap-1.5">
                                 <button
