@@ -15,6 +15,8 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
   const [showAddFollowup, setShowAddFollowup] = useState<{ [key: string]: boolean }>({});
   const [newQuote, setNewQuote] = useState<Partial<NonStandardQuote>>({});
   const [newFollowup, setNewFollowup] = useState<Partial<NonStandardFollowup>>({});
+  const [savingQuote, setSavingQuote] = useState<{ [key: string]: boolean }>({});
+  const [savingFollowup, setSavingFollowup] = useState<{ [key: string]: boolean }>({});
   const loadingRef = useRef(false);
 
   const loadSubmissions = useCallback(async () => {
@@ -50,6 +52,9 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
       return;
     }
 
+    const quoteKey = `${nonStandardId}-${carrierEmail}`;
+    setSavingQuote(prev => ({ ...prev, [quoteKey]: true }));
+
     try {
       const response = await fetch(`/api/non-standard/${nonStandardId}/quotes`, {
         method: 'POST',
@@ -68,7 +73,7 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
         setNewQuote({});
         setShowAddQuote(prev => {
           const newState = { ...prev };
-          delete newState[`${nonStandardId}-${carrierEmail}`];
+          delete newState[quoteKey];
           return newState;
         });
       } else {
@@ -77,6 +82,12 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
     } catch (error) {
       console.error('Error adding quote:', error);
       alert('Error adding quote');
+    } finally {
+      setSavingQuote(prev => {
+        const newState = { ...prev };
+        delete newState[quoteKey];
+        return newState;
+      });
     }
   }
 
@@ -85,6 +96,9 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
       alert('Please fill in date and notes');
       return;
     }
+
+    const followupKey = `${nonStandardId}-${carrierEmail}`;
+    setSavingFollowup(prev => ({ ...prev, [followupKey]: true }));
 
     try {
       const response = await fetch(`/api/non-standard/${nonStandardId}/followups`, {
@@ -101,7 +115,7 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
         setNewFollowup({});
         setShowAddFollowup(prev => {
           const newState = { ...prev };
-          delete newState[`${nonStandardId}-${carrierEmail}`];
+          delete newState[followupKey];
           return newState;
         });
       } else {
@@ -110,6 +124,12 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
     } catch (error) {
       console.error('Error adding followup:', error);
       alert('Error adding followup');
+    } finally {
+      setSavingFollowup(prev => {
+        const newState = { ...prev };
+        delete newState[followupKey];
+        return newState;
+      });
     }
   }
 
