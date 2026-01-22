@@ -319,9 +319,17 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
                               <div className="flex gap-1.5">
                                 <button
                                   onClick={() => handleAddQuote(submission.id, carrier.email, carrier.company)}
-                                  className="btn-primary text-xs px-2 py-0.5 flex-1"
+                                  disabled={savingQuote[carrierKey]}
+                                  className="btn-primary text-xs px-2 py-0.5 flex-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
                                 >
-                                  Save
+                                  {savingQuote[carrierKey] ? (
+                                    <>
+                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                      Saving...
+                                    </>
+                                  ) : (
+                                    'Save'
+                                  )}
                                 </button>
                                 <button
                                   onClick={() => {
@@ -398,9 +406,17 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
                               <div className="flex gap-1.5">
                                 <button
                                   onClick={() => handleAddFollowup(submission.id, carrier.email)}
-                                  className="btn-primary text-xs px-2 py-0.5 flex-1"
+                                  disabled={savingFollowup[carrierKey]}
+                                  className="btn-primary text-xs px-2 py-0.5 flex-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
                                 >
-                                  Save
+                                  {savingFollowup[carrierKey] ? (
+                                    <>
+                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                      Saving...
+                                    </>
+                                  ) : (
+                                    'Save'
+                                  )}
                                 </button>
                                 <button
                                   onClick={() => {
