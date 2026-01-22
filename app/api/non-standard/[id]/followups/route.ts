@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { getNonStandardSubmission, updateNonStandardSubmission } from '@/lib/db/queries';
+import { getNonStandardSubmission, updateNonStandardSubmission, getUserById } from '@/lib/db/queries';
 import { NonStandardFollowup } from '@/lib/types';
 
 export async function POST(
@@ -29,7 +29,8 @@ export async function POST(
     }
 
     // Get current user email for created_by
-    const currentUserEmail = user.email || 'unknown@mckinneyandco.com';
+    const dbUser = await getUserById(user.userId);
+    const currentUserEmail = dbUser?.username ? `${dbUser.username}@mckinneyandco.com` : 'unknown@mckinneyandco.com';
 
     const newFollowup: NonStandardFollowup = {
       id: `followup-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

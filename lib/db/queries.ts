@@ -27,6 +27,19 @@ export async function getUserByUsername(username: string): Promise<User | null> 
   };
 }
 
+export async function getUserById(userId: string): Promise<User | null> {
+  const rows = await sql`SELECT * FROM users WHERE id = ${userId} LIMIT 1`;
+  if (rows.length === 0) return null;
+  const row = rows[0];
+  return {
+    id: row.id,
+    username: row.username,
+    password: row.password,
+    role: row.role as 'admin' | 'agent',
+    name: row.name,
+  };
+}
+
 export async function createUser(user: Omit<User, 'id'>): Promise<User> {
   const hashedPassword = await bcrypt.hash(user.password, 10);
   const rows = await sql`
