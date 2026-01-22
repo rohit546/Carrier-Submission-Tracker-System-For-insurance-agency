@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Submission, BusinessType, Carrier } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, Edit, CheckCircle, Loader2, FileText } from 'lucide-react';
+import { Calendar, Edit, CheckCircle, Loader2, FileText, Search, X } from 'lucide-react';
 
 // Helper function to format dates consistently (prevents hydration errors)
 function formatDate(dateString: string | null | undefined): string {
@@ -29,6 +29,7 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -77,6 +78,24 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
     return hoursSinceCreation < 48;
   };
 
+  // Filter submissions based on search query
+  const filteredSubmissions = submissions.filter((submission) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase().trim();
+    const businessName = submission.businessName?.toLowerCase() || '';
+    const businessType = getBusinessTypeName(submission.businessTypeId || '').toLowerCase();
+    const status = submission.status?.toLowerCase() || '';
+    const date = formatDate(submission.createdAt).toLowerCase();
+    
+    return (
+      businessName.includes(query) ||
+      businessType.includes(query) ||
+      status.includes(query) ||
+      date.includes(query)
+    );
+  });
+
   // Loading state with nice UI
   if (loading) {
     return (
@@ -102,6 +121,37 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
 
   return (
     <div>
+      {/* Search Bar */}
+      {submissions.length > 0 && (
+        <div className="mb-6">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by business name, type, status, or date..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="block w-full pl-12 pr-12 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-black focus:border-transparent text-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="mt-2 text-sm text-gray-500">
+              {filteredSubmissions.length} {filteredSubmissions.length === 1 ? 'result' : 'results'} found
+            </p>
+          )}
+        </div>
+      )}
+
       {submissions.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
           <div className="max-w-md mx-auto">
@@ -117,9 +167,25 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
             </Link>
           </div>
         </div>
+      ) : filteredSubmissions.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+          <div className="max-w-md mx-auto">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="text-gray-500 mb-2 text-base font-medium">No results found</p>
+            <p className="text-gray-400 text-sm mb-6">Try adjusting your search terms</p>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200 border border-gray-200"
+            >
+              Clear Search
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {submissions.map((submission) => (
+          {filteredSubmissions.map((submission) => (
             <div 
               key={submission.id} 
               className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-gray-300 transition-all duration-200 relative overflow-hidden flex flex-col h-full"
