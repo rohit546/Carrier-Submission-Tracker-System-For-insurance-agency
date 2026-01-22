@@ -13,6 +13,7 @@ interface AutoSubmitModalProps {
   onConfirm: (selectedCarriers: CarrierType[]) => Promise<void>;
   insuredInfo: InsuredInformation | null;
   submitting?: boolean;
+  submissionId?: string;
 }
 
 // Helper to parse name into firstName and lastName
@@ -412,6 +413,7 @@ export default function AutoSubmitModal({
   onConfirm,
   insuredInfo,
   submitting = false,
+  submissionId,
 }: AutoSubmitModalProps) {
   const [selectedCarriers, setSelectedCarriers] = useState<CarrierType[]>(['encova', 'guard', 'columbia']);
   const [encovaErrors, setEncovaErrors] = useState<string[]>([]);
@@ -760,7 +762,7 @@ McKinney & Co`);
           message: `✅ ${data.message}` 
         });
         
-        // Save to email history
+        // Save to email history (local state)
         const historyEntry = {
           sentAt: new Date().toISOString(),
           from: fromEmail,
@@ -775,6 +777,26 @@ McKinney & Co`);
           })),
         };
         setEmailHistory(prev => [historyEntry, ...prev]);
+        
+        // Save to database if submissionId is available
+        if (submissionId) {
+          try {
+            await fetch(`/api/submissions/${submissionId}/non-standard`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from_email: fromEmail,
+                to_emails: selectedUnderwriters,
+                cc_emails: ccEmails,
+                subject: emailSubject,
+                body: emailBody,
+              }),
+            });
+          } catch (dbError) {
+            console.error('Failed to save non-standard submission to database:', dbError);
+            // Don't show error to user - email was sent successfully
+          }
+        }
         
         // Clear form after success
         setSelectedUnderwriters([]);

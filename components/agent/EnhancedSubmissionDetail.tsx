@@ -7,6 +7,7 @@ import { Submission, BusinessType, Carrier, CarrierQuote, InsuredInformation } f
 import InsuredInfoSection from './InsuredInfoSection';
 import AutoSubmitModal, { CarrierType } from './AutoSubmitModal';
 import AutomationStatusModal from './AutomationStatusModal';
+import NonStandardMarketSection from './NonStandardMarketSection';
 import { DollarSign, MessageSquare, CheckCircle, MapPin, X, AlertCircle, Info, Save, Send, Rocket, Activity, Search } from 'lucide-react';
 
 // Line of Business (LOB) options
@@ -533,6 +534,9 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         </div>
       ) : null}
 
+      {/* Non-Standard Market Section */}
+      <NonStandardMarketSection submissionId={submission.id} />
+
       {/* Business Type Selection - Required before showing carriers */}
       <div className="card p-4">
         <div className="flex items-center justify-between">
@@ -811,6 +815,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         onConfirm={handleAutoSubmit}
         insuredInfo={insuredInfo}
         submitting={submitting}
+        submissionId={submission.id}
       />
 
       {/* Automation Status Modal */}

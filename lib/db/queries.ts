@@ -1,5 +1,5 @@
 import sql from './connection';
-import { User, BusinessType, Carrier, Submission, CarrierQuote } from '../types';
+import { User, BusinessType, Carrier, Submission, CarrierQuote, NonStandardSubmission, NonStandardQuote, NonStandardFollowup } from '../types';
 import bcrypt from 'bcryptjs';
 
 // Users
@@ -731,4 +731,160 @@ export async function updateSubmission(id: string, updates: Partial<Submission>)
   }
 
   return getSubmission(id) as Promise<Submission>;
+}
+
+// Non-Standard Submissions
+export async function createNonStandardSubmission(data: {
+  submission_id: string;
+  from_email: string;
+  to_emails: string[];
+  cc_emails?: string[];
+  subject: string;
+  body: string;
+}): Promise<NonStandardSubmission> {
+  const rows = await sql`
+    INSERT INTO non_standard_submissions (
+      submission_id, from_email, to_emails, cc_emails, subject, body, sent_at
+    )
+    VALUES (
+      ${data.submission_id},
+      ${data.from_email},
+      ${data.to_emails},
+      ${data.cc_emails || []},
+      ${data.subject},
+      ${data.body},
+      NOW()
+    )
+    RETURNING *
+  `;
+  const row = rows[0];
+  return {
+    id: row.id,
+    submission_id: row.submission_id,
+    from_email: row.from_email,
+    to_emails: row.to_emails,
+    cc_emails: row.cc_emails || [],
+    subject: row.subject,
+    body: row.body,
+    sent_at: row.sent_at.toISOString(),
+    status: row.status,
+    quotes: row.quotes || [],
+    followups: row.followups || [],
+    last_activity_at: row.last_activity_at?.toISOString(),
+    last_activity_type: row.last_activity_type,
+    notes: row.notes,
+    created_at: row.created_at.toISOString(),
+    updated_at: row.updated_at.toISOString(),
+  };
+}
+
+export async function getNonStandardSubmissions(submissionId: string): Promise<NonStandardSubmission[]> {
+  const rows = await sql`
+    SELECT * FROM non_standard_submissions
+    WHERE submission_id = ${submissionId}
+    ORDER BY sent_at DESC
+  `;
+  return rows.map(row => ({
+    id: row.id,
+    submission_id: row.submission_id,
+    from_email: row.from_email,
+    to_emails: row.to_emails,
+    cc_emails: row.cc_emails || [],
+    subject: row.subject,
+    body: row.body,
+    sent_at: row.sent_at.toISOString(),
+    status: row.status,
+    quotes: row.quotes || [],
+    followups: row.followups || [],
+    last_activity_at: row.last_activity_at?.toISOString(),
+    last_activity_type: row.last_activity_type,
+    notes: row.notes,
+    created_at: row.created_at.toISOString(),
+    updated_at: row.updated_at.toISOString(),
+  }));
+}
+
+export async function getNonStandardSubmission(id: string): Promise<NonStandardSubmission | null> {
+  const rows = await sql`
+    SELECT * FROM non_standard_submissions
+    WHERE id = ${id}
+    LIMIT 1
+  `;
+  if (rows.length === 0) return null;
+  const row = rows[0];
+  return {
+    id: row.id,
+    submission_id: row.submission_id,
+    from_email: row.from_email,
+    to_emails: row.to_emails,
+    cc_emails: row.cc_emails || [],
+    subject: row.subject,
+    body: row.body,
+    sent_at: row.sent_at.toISOString(),
+    status: row.status,
+    quotes: row.quotes || [],
+    followups: row.followups || [],
+    last_activity_at: row.last_activity_at?.toISOString(),
+    last_activity_type: row.last_activity_type,
+    notes: row.notes,
+    created_at: row.created_at.toISOString(),
+    updated_at: row.updated_at.toISOString(),
+  };
+}
+
+export async function updateNonStandardSubmission(
+  id: string,
+  updates: {
+    status?: NonStandardSubmission['status'];
+    quotes?: NonStandardQuote[];
+    followups?: NonStandardFollowup[];
+    notes?: string;
+    last_activity_at?: string;
+    last_activity_type?: string;
+  }
+): Promise<NonStandardSubmission> {
+  if (updates.status !== undefined) {
+    await sql`
+      UPDATE non_standard_submissions
+      SET status = ${updates.status}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  }
+  if (updates.quotes !== undefined) {
+    await sql`
+      UPDATE non_standard_submissions
+      SET quotes = ${JSON.stringify(updates.quotes)}::jsonb, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  }
+  if (updates.followups !== undefined) {
+    await sql`
+      UPDATE non_standard_submissions
+      SET followups = ${JSON.stringify(updates.followups)}::jsonb, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  }
+  if (updates.notes !== undefined) {
+    await sql`
+      UPDATE non_standard_submissions
+      SET notes = ${updates.notes}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  }
+  if (updates.last_activity_at !== undefined) {
+    await sql`
+      UPDATE non_standard_submissions
+      SET last_activity_at = ${updates.last_activity_at ? new Date(updates.last_activity_at) : null}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  }
+  if (updates.last_activity_type !== undefined) {
+    await sql`
+      UPDATE non_standard_submissions
+      SET last_activity_type = ${updates.last_activity_type}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  }
+  
+  return getNonStandardSubmission(id) as Promise<NonStandardSubmission>;
 }

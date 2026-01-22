@@ -124,3 +124,41 @@ export interface CarrierQuote {
   remarks: string;
   selected: boolean;
 }
+
+export interface NonStandardQuote {
+  id: string;
+  carrier: string;
+  email: string;
+  amount?: number;
+  received_date: string;
+  notes?: string;
+  status?: 'received' | 'reviewing' | 'accepted' | 'declined' | 'expired' | 'bound';
+}
+
+export interface NonStandardFollowup {
+  id: string;
+  date: string;
+  type: 'email' | 'phone' | 'meeting' | 'note';
+  with: string;
+  notes: string;
+  created_by: string;
+}
+
+export interface NonStandardSubmission {
+  id: string;
+  submission_id: string;
+  from_email: string;
+  to_emails: string[];
+  cc_emails: string[];
+  subject: string;
+  body: string;
+  sent_at: string;
+  status: 'sent' | 'responded' | 'quoted' | 'declined' | 'bound';
+  quotes: NonStandardQuote[];
+  followups: NonStandardFollowup[];
+  last_activity_at?: string;
+  last_activity_type?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
