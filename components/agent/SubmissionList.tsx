@@ -80,19 +80,19 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
   // Loading state with nice UI
   if (loading) {
     return (
-      <div className="card p-12">
-        <div className="flex flex-col items-center justify-center space-y-4">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
+        <div className="flex flex-col items-center justify-center space-y-5">
           <div className="relative">
-            <Loader2 className="w-12 h-12 text-emerald-600 animate-spin" />
+            <Loader2 className="w-14 h-14 text-emerald-600 animate-spin" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <FileText className="w-6 h-6 text-emerald-500" />
+              <FileText className="w-7 h-7 text-emerald-500" />
             </div>
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-800 mb-1">Loading Submissions</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">Loading Submissions</h3>
             <p className="text-sm text-gray-500">Please wait while we fetch your data...</p>
           </div>
-          <div className="w-64 h-1 bg-gray-200 rounded-full overflow-hidden">
+          <div className="w-64 h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-emerald-600 rounded-full animate-pulse" style={{ width: '60%' }}></div>
           </div>
         </div>
@@ -103,47 +103,63 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
   return (
     <div className="space-y-4">
       {submissions.length === 0 ? (
-        <div className="card p-12 text-center">
-          <p className="text-gray-500 mb-4">No submissions yet</p>
-          <Link href="/agent/new" className="btn-primary inline-block">
-            Create Your First Submission
-          </Link>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+          <div className="max-w-md mx-auto">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="text-gray-500 mb-6 text-base">No submissions yet</p>
+            <Link 
+              href="/agent/new" 
+              className="inline-flex items-center justify-center px-6 py-3 bg-black text-white font-medium rounded-lg hover:bg-gray-800 transition-all duration-200 shadow-sm hover:shadow-md"
+            >
+              Create Your First Submission
+            </Link>
+          </div>
         </div>
       ) : (
         submissions.map((submission) => (
-          <div key={submission.id} className="card p-6 hover:shadow-md transition-shadow relative">
+          <div 
+            key={submission.id} 
+            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-gray-300 transition-all duration-200 relative overflow-hidden"
+          >
             {/* NEW Tag - Top Right */}
             {isNewSubmission(submission) && (
-              <span className="absolute top-4 right-4 badge bg-blue-600 text-white text-xs font-bold z-10">
+              <span className="absolute top-4 right-4 px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-full z-10 shadow-sm">
                 NEW
               </span>
             )}
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-black mb-1">
+            
+            <div className="flex items-start justify-between mb-5">
+              <div className="flex-1 pr-4">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
                   {submission.businessName}
                 </h3>
-                <p className="text-sm text-gray-600">{getBusinessTypeName(submission.businessTypeId || '')}</p>
+                <p className="text-sm text-gray-500 font-medium">{getBusinessTypeName(submission.businessTypeId || '')}</p>
               </div>
-              <span className={`badge ${getStatusColor(submission.status)} ${isNewSubmission(submission) ? 'mr-12' : ''}`}>
+              <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${getStatusColor(submission.status)} ${isNewSubmission(submission) ? 'mr-16' : ''} shadow-sm`}>
                 {submission.status.toUpperCase()}
               </span>
             </div>
             
-            <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-4 h-4" />
-                <span>{formatDate(submission.createdAt)}</span>
+            <div className="flex items-center gap-6 text-sm text-gray-600 mb-5 pb-5 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                </div>
+                <span className="font-medium">{formatDate(submission.createdAt)}</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4" />
-                <span>{submission.carriers.filter(c => c.quoted).length} quoted</span>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-gray-500" />
+                </div>
+                <span className="font-medium">{submission.carriers.filter(c => c.quoted).length} quoted</span>
               </div>
             </div>
 
             <button
               onClick={() => router.push(`/agent/submission/${submission.id}`)}
-              className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-black transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 hover:text-black transition-all duration-200 border border-gray-200 hover:border-gray-300"
             >
               <Edit className="w-4 h-4" />
               View Details

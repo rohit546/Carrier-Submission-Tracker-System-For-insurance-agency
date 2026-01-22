@@ -26,7 +26,7 @@ export default async function AgentPage() {
         {/* Back to Dashboard Button */}
         <a
           href="https://deployment-delta-eight.vercel.app/"
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-black transition-colors text-sm mb-4"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors text-sm mb-6 px-3 py-2 rounded-lg hover:bg-gray-100"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -35,7 +35,7 @@ export default async function AgentPage() {
         </a>
 
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-black">My Submissions</h2>
+          <h2 className="text-3xl font-bold text-gray-900">My Submissions</h2>
           <NewSubmissionButton />
         </div>
         <SubmissionList agentId={user.userId} />
