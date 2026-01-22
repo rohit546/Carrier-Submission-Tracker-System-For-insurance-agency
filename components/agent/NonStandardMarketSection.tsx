@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { NonStandardSubmission, NonStandardQuote, NonStandardFollowup } from '@/lib/types';
 import { Mail, DollarSign, MessageSquare, Phone, Calendar, Plus, CheckCircle, X, AlertCircle, RefreshCw } from 'lucide-react';
 
@@ -15,14 +15,17 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
   const [showAddFollowup, setShowAddFollowup] = useState<{ [key: string]: boolean }>({});
   const [newQuote, setNewQuote] = useState<Partial<NonStandardQuote>>({});
   const [newFollowup, setNewFollowup] = useState<Partial<NonStandardFollowup>>({});
+  const loadingRef = useRef(false);
 
-  useEffect(() => {
-    loadSubmissions();
-    // Only refresh when component mounts or submissionId changes
-    // Remove auto-refresh to reduce API calls - user can manually refresh
-  }, [submissionId]);
-
-  async function loadSubmissions() {
+  const loadSubmissions = useCallback(async () => {
+    // Prevent duplicate calls
+    if (loadingRef.current) {
+      return;
+    }
+    
+    loadingRef.current = true;
+    setLoading(true);
+    
     try {
       const response = await fetch(`/api/submissions/${submissionId}/non-standard`);
       if (response.ok) {
@@ -38,8 +41,14 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
       setSubmissions([]);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
-  }
+  }, [submissionId]);
+
+  useEffect(() => {
+    loadSubmissions();
+    // Only refresh when component mounts or submissionId changes
+  }, [loadSubmissions]);
 
   async function handleAddQuote(nonStandardId: string) {
     if (!newQuote.carrier || !newQuote.email || !newQuote.received_date) {
