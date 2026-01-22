@@ -28,8 +28,14 @@ export async function POST(
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    const newQuote: NonStandardQuote = {
-      id: `quote-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    // Check if quote already exists for this carrier (only one quote per carrier)
+    const existingQuotes = submission.quotes || [];
+    const existingQuoteIndex = existingQuotes.findIndex(q => q.carrier_email === carrier_email);
+
+    const quoteData: NonStandardQuote = {
+      id: existingQuoteIndex >= 0 
+        ? existingQuotes[existingQuoteIndex].id 
+        : `quote-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       carrier_email,
       carrier,
       amount: amount ? parseFloat(amount) : undefined,
@@ -38,7 +44,10 @@ export async function POST(
       status: status || 'received',
     };
 
-    const updatedQuotes = [...(submission.quotes || []), newQuote];
+    // Replace existing quote or add new one
+    const updatedQuotes = existingQuoteIndex >= 0
+      ? existingQuotes.map((q, idx) => idx === existingQuoteIndex ? quoteData : q)
+      : [...existingQuotes, quoteData];
     
     const updated = await updateNonStandardSubmission(params.id, {
       quotes: updatedQuotes,

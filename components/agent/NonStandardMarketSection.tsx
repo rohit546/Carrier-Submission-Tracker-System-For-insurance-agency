@@ -11,7 +11,9 @@ interface NonStandardMarketSectionProps {
 export default function NonStandardMarketSection({ submissionId }: NonStandardMarketSectionProps) {
   const [submissions, setSubmissions] = useState<NonStandardSubmission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAddQuote, setShowAddQuote] = useState<{ [key: string]: boolean }>({});
   const [showAddFollowup, setShowAddFollowup] = useState<{ [key: string]: boolean }>({});
+  const [newQuote, setNewQuote] = useState<Partial<NonStandardQuote>>({});
   const [newFollowup, setNewFollowup] = useState<Partial<NonStandardFollowup>>({});
   const loadingRef = useRef(false);
 
@@ -41,6 +43,42 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
   useEffect(() => {
     loadSubmissions();
   }, [loadSubmissions]);
+
+  async function handleAddQuote(nonStandardId: string, carrierEmail: string, carrierCompany: string) {
+    if (!newQuote.received_date) {
+      alert('Please fill in received date');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/non-standard/${nonStandardId}/quotes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          carrier_email: carrierEmail,
+          carrier: carrierCompany, // Use carrier company name
+          amount: newQuote.amount,
+          received_date: newQuote.received_date,
+          notes: newQuote.notes,
+        }),
+      });
+
+      if (response.ok) {
+        await loadSubmissions();
+        setNewQuote({});
+        setShowAddQuote(prev => {
+          const newState = { ...prev };
+          delete newState[`${nonStandardId}-${carrierEmail}`];
+          return newState;
+        });
+      } else {
+        alert('Failed to add quote');
+      }
+    } catch (error) {
+      console.error('Error adding quote:', error);
+      alert('Error adding quote');
+    }
+  }
 
   async function handleAddFollowup(nonStandardId: string, carrierEmail: string) {
     if (!newFollowup.date || !newFollowup.type || !newFollowup.with || !newFollowup.notes) {
@@ -210,11 +248,79 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
 
                         {/* Quote Section - Always Visible */}
                         <div className="border-b border-gray-200 pb-2">
-                          <h5 className="font-medium text-black text-xs flex items-center gap-1 mb-1.5">
-                            <DollarSign className="w-3 h-3" />
-                            Quote
-                          </h5>
-                          {carrierQuote ? (
+                          <div className="flex items-center justify-between mb-1.5">
+                            <h5 className="font-medium text-black text-xs flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" />
+                              Quote
+                            </h5>
+                            <button
+                              onClick={() => {
+                                if (carrierQuote) {
+                                  // Pre-fill form with existing quote for editing
+                                  setNewQuote({
+                                    amount: carrierQuote.amount,
+                                    received_date: carrierQuote.received_date,
+                                    notes: carrierQuote.notes,
+                                  });
+                                }
+                                setShowAddQuote(prev => ({ ...prev, [carrierKey]: !prev[carrierKey] }));
+                              }}
+                              className="text-xs text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5"
+                            >
+                              <Plus className="w-3 h-3" />
+                              {carrierQuote ? 'Edit' : 'Add'}
+                            </button>
+                          </div>
+
+                          {showAddQuote[carrierKey] && (
+                            <div className="bg-white p-2 rounded mb-1.5 space-y-1.5 border border-gray-200">
+                              <input
+                                type="number"
+                                placeholder="Amount"
+                                value={newQuote.amount || ''}
+                                onChange={(e) => setNewQuote({ ...newQuote, amount: parseFloat(e.target.value) || undefined })}
+                                className="input-field text-xs px-2 py-1"
+                              />
+                              <input
+                                type="date"
+                                placeholder="Received Date"
+                                value={newQuote.received_date || ''}
+                                onChange={(e) => setNewQuote({ ...newQuote, received_date: e.target.value })}
+                                className="input-field text-xs px-2 py-1"
+                                required
+                              />
+                              <textarea
+                                placeholder="Notes (optional)"
+                                value={newQuote.notes || ''}
+                                onChange={(e) => setNewQuote({ ...newQuote, notes: e.target.value })}
+                                className="input-field text-xs px-2 py-1"
+                                rows={2}
+                              />
+                              <div className="flex gap-1.5">
+                                <button
+                                  onClick={() => handleAddQuote(submission.id, carrier.email, carrier.company)}
+                                  className="btn-primary text-xs px-2 py-0.5 flex-1"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setNewQuote({});
+                                    setShowAddQuote(prev => {
+                                      const newState = { ...prev };
+                                      delete newState[carrierKey];
+                                      return newState;
+                                    });
+                                  }}
+                                  className="btn-secondary text-xs px-2 py-0.5 flex-1"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {carrierQuote && !showAddQuote[carrierKey] && (
                             <div className="bg-green-50 border border-green-200 rounded p-1.5">
                               <div className="space-y-0.5">
                                 {carrierQuote.amount && (
@@ -228,7 +334,9 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
                                 )}
                               </div>
                             </div>
-                          ) : (
+                          )}
+
+                          {!carrierQuote && !showAddQuote[carrierKey] && (
                             <p className="text-xs text-gray-500 italic">No quote received</p>
                           )}
                         </div>
