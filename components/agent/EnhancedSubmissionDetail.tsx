@@ -278,8 +278,8 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
     
     // Automatically set quoted = true if amount OR remarks are filled
     const hasAmount = updatedQuote.amount !== null && updatedQuote.amount !== undefined && updatedQuote.amount !== 0;
-    const hasRemarks = updatedQuote.remarks && updatedQuote.remarks.trim() !== '';
-    const shouldBeQuoted = hasAmount || hasRemarks;
+    const hasRemarks = Boolean(updatedQuote.remarks && updatedQuote.remarks.trim() !== '');
+    const shouldBeQuoted: boolean = hasAmount || hasRemarks;
     
     // Always set quoted based on amount/remarks
     updatedQuote.quoted = shouldBeQuoted;
