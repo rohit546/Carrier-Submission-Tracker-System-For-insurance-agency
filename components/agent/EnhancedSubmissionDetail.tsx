@@ -534,9 +534,6 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         </div>
       ) : null}
 
-      {/* Non-Standard Market Section */}
-      <NonStandardMarketSection submissionId={submission.id} />
-
       {/* Business Type Selection - Required before showing carriers */}
       <div className="card p-4">
         <div className="flex items-center justify-between">
@@ -858,6 +855,9 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
           </div>
         </div>
       )}
+
+      {/* Non-Standard Market Section - Before Save Button */}
+      <NonStandardMarketSection submissionId={submission.id} />
 
       {/* Save Button - At the bottom of the page */}
       {submission.status !== 'submitted' && submission.status !== 'bound' && (
