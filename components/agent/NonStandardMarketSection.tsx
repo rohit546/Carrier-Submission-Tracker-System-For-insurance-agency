@@ -18,11 +18,8 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
 
   useEffect(() => {
     loadSubmissions();
-    // Refresh every 5 seconds to catch new submissions
-    const interval = setInterval(() => {
-      loadSubmissions();
-    }, 5000);
-    return () => clearInterval(interval);
+    // Only refresh when component mounts or submissionId changes
+    // Remove auto-refresh to reduce API calls - user can manually refresh
   }, [submissionId]);
 
   async function loadSubmissions() {
@@ -60,7 +57,11 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
       if (response.ok) {
         await loadSubmissions();
         setNewQuote({});
-        setShowAddQuote(prev => ({ ...prev, [nonStandardId]: false }));
+        setShowAddQuote(prev => {
+          const newState = { ...prev };
+          delete newState[nonStandardId];
+          return newState;
+        });
       } else {
         alert('Failed to add quote');
       }
@@ -86,7 +87,11 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
       if (response.ok) {
         await loadSubmissions();
         setNewFollowup({});
-        setShowAddFollowup(prev => ({ ...prev, [nonStandardId]: false }));
+        setShowAddFollowup(prev => {
+          const newState = { ...prev };
+          delete newState[nonStandardId];
+          return newState;
+        });
       } else {
         alert('Failed to add followup');
       }
@@ -265,7 +270,11 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
                     <button
                       onClick={() => {
                         setNewQuote({});
-                        setShowAddQuote(prev => ({ ...prev, [submission.id]: false }));
+                        setShowAddQuote(prev => {
+                          const newState = { ...prev };
+                          delete newState[submission.id];
+                          return newState;
+                        });
                       }}
                       className="btn-secondary text-sm px-3 py-1"
                     >
@@ -363,7 +372,11 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
                     <button
                       onClick={() => {
                         setNewFollowup({});
-                        setShowAddFollowup(prev => ({ ...prev, [submission.id]: false }));
+                        setShowAddFollowup(prev => {
+                          const newState = { ...prev };
+                          delete newState[submission.id];
+                          return newState;
+                        });
                       }}
                       className="btn-secondary text-sm px-3 py-1"
                     >
