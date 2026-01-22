@@ -14,11 +14,11 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { date, type, with: withEmail, notes } = body;
+    const { carrier_email, date, type, with: withEmail, notes } = body;
 
-    if (!date || !type || !withEmail || !notes) {
+    if (!carrier_email || !date || !type || !withEmail || !notes) {
       return NextResponse.json(
-        { error: 'Missing required fields: date, type, with, notes' },
+        { error: 'Missing required fields: carrier_email, date, type, with, notes' },
         { status: 400 }
       );
     }
@@ -33,6 +33,7 @@ export async function POST(
 
     const newFollowup: NonStandardFollowup = {
       id: `followup-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      carrier_email,
       date,
       type: type as 'email' | 'phone' | 'meeting' | 'note',
       with: withEmail,

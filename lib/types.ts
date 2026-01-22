@@ -125,10 +125,15 @@ export interface CarrierQuote {
   selected: boolean;
 }
 
+export interface NonStandardCarrier {
+  email: string;
+  company: string;
+}
+
 export interface NonStandardQuote {
   id: string;
+  carrier_email: string; // Link to specific carrier
   carrier: string;
-  email: string;
   amount?: number;
   received_date: string;
   notes?: string;
@@ -137,6 +142,7 @@ export interface NonStandardQuote {
 
 export interface NonStandardFollowup {
   id: string;
+  carrier_email: string; // Link to specific carrier
   date: string;
   type: 'email' | 'phone' | 'meeting' | 'note';
   with: string;
@@ -154,6 +160,7 @@ export interface NonStandardSubmission {
   body: string;
   sent_at: string;
   status: 'sent' | 'responded' | 'quoted' | 'declined' | 'bound';
+  carriers: NonStandardCarrier[]; // Array of carriers with names and emails
   quotes: NonStandardQuote[];
   followups: NonStandardFollowup[];
   last_activity_at?: string;

@@ -781,6 +781,15 @@ McKinney & Co`);
         // Save to database if submissionId is available
         if (submissionId) {
           try {
+            // Map selected underwriters to carriers with company names
+            const carriers = selectedUnderwriters.map(email => {
+              const underwriter = UNDERWRITER_OPTIONS.find(u => u.email === email);
+              return {
+                email: email,
+                company: underwriter?.company || 'Custom',
+              };
+            });
+
             await fetch(`/api/submissions/${submissionId}/non-standard`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -790,6 +799,7 @@ McKinney & Co`);
                 cc_emails: ccEmails,
                 subject: emailSubject,
                 body: emailBody,
+                carriers: carriers,
               }),
             });
           } catch (dbError) {

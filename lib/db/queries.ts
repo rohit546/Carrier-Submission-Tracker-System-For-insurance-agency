@@ -1,5 +1,5 @@
 import sql from './connection';
-import { User, BusinessType, Carrier, Submission, CarrierQuote, NonStandardSubmission, NonStandardQuote, NonStandardFollowup } from '../types';
+import { User, BusinessType, Carrier, Submission, CarrierQuote, NonStandardSubmission, NonStandardQuote, NonStandardFollowup, NonStandardCarrier } from '../types';
 import bcrypt from 'bcryptjs';
 
 // Users
@@ -741,10 +741,11 @@ export async function createNonStandardSubmission(data: {
   cc_emails?: string[];
   subject: string;
   body: string;
+  carriers?: NonStandardCarrier[];
 }): Promise<NonStandardSubmission> {
   const rows = await sql`
     INSERT INTO non_standard_submissions (
-      submission_id, from_email, to_emails, cc_emails, subject, body, sent_at
+      submission_id, from_email, to_emails, cc_emails, subject, body, sent_at, carriers
     )
     VALUES (
       ${data.submission_id},
@@ -753,7 +754,8 @@ export async function createNonStandardSubmission(data: {
       ${data.cc_emails || []},
       ${data.subject},
       ${data.body},
-      NOW()
+      NOW(),
+      ${JSON.stringify(data.carriers || [])}::jsonb
     )
     RETURNING *
   `;
@@ -768,6 +770,7 @@ export async function createNonStandardSubmission(data: {
     body: row.body,
     sent_at: row.sent_at.toISOString(),
     status: row.status,
+    carriers: row.carriers || [],
     quotes: row.quotes || [],
     followups: row.followups || [],
     last_activity_at: row.last_activity_at?.toISOString(),
@@ -794,6 +797,7 @@ export async function getNonStandardSubmissions(submissionId: string): Promise<N
     body: row.body,
     sent_at: row.sent_at.toISOString(),
     status: row.status,
+    carriers: row.carriers || [],
     quotes: row.quotes || [],
     followups: row.followups || [],
     last_activity_at: row.last_activity_at?.toISOString(),
@@ -822,6 +826,7 @@ export async function getNonStandardSubmission(id: string): Promise<NonStandardS
     body: row.body,
     sent_at: row.sent_at.toISOString(),
     status: row.status,
+    carriers: row.carriers || [],
     quotes: row.quotes || [],
     followups: row.followups || [],
     last_activity_at: row.last_activity_at?.toISOString(),
@@ -836,6 +841,7 @@ export async function updateNonStandardSubmission(
   id: string,
   updates: {
     status?: NonStandardSubmission['status'];
+    carriers?: NonStandardCarrier[];
     quotes?: NonStandardQuote[];
     followups?: NonStandardFollowup[];
     notes?: string;
@@ -847,6 +853,13 @@ export async function updateNonStandardSubmission(
     await sql`
       UPDATE non_standard_submissions
       SET status = ${updates.status}, updated_at = NOW()
+      WHERE id = ${id}
+    `;
+  }
+  if (updates.carriers !== undefined) {
+    await sql`
+      UPDATE non_standard_submissions
+      SET carriers = ${JSON.stringify(updates.carriers)}::jsonb, updated_at = NOW()
       WHERE id = ${id}
     `;
   }

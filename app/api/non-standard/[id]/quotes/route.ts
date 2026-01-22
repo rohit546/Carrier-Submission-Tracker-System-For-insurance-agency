@@ -14,11 +14,11 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { carrier, email, amount, received_date, notes, status } = body;
+    const { carrier_email, carrier, amount, received_date, notes, status } = body;
 
-    if (!carrier || !email || !received_date) {
+    if (!carrier_email || !carrier || !received_date) {
       return NextResponse.json(
-        { error: 'Missing required fields: carrier, email, received_date' },
+        { error: 'Missing required fields: carrier_email, carrier, received_date' },
         { status: 400 }
       );
     }
@@ -30,8 +30,8 @@ export async function POST(
 
     const newQuote: NonStandardQuote = {
       id: `quote-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      carrier_email,
       carrier,
-      email,
       amount: amount ? parseFloat(amount) : undefined,
       received_date,
       notes,

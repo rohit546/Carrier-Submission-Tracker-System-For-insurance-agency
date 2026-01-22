@@ -34,7 +34,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { from_email, to_emails, cc_emails, subject, body: emailBody } = body;
+    const { from_email, to_emails, cc_emails, subject, body: emailBody, carriers } = body;
 
     if (!from_email || !to_emails || !Array.isArray(to_emails) || to_emails.length === 0 || !subject || !emailBody) {
       return NextResponse.json(
@@ -50,6 +50,7 @@ export async function POST(
       cc_emails: cc_emails || [],
       subject,
       body: emailBody,
+      carriers: carriers || [],
     });
 
     return NextResponse.json(submission, { status: 201 });

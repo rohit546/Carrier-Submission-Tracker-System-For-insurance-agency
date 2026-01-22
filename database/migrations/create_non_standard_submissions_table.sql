@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS non_standard_submissions (
     'bound'      -- Policy bound
   )),
   
+  -- Carriers (stored as JSONB array with name and email for each recipient)
+  carriers JSONB DEFAULT '[]'::jsonb,
+  
   -- Quotes (stored as JSONB array)
   quotes JSONB DEFAULT '[]'::jsonb,
   
