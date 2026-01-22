@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { NonStandardSubmission, NonStandardQuote, NonStandardFollowup, NonStandardCarrier } from '@/lib/types';
-import { Mail, DollarSign, MessageSquare, Phone, Calendar, Plus, CheckCircle, X, AlertCircle, RefreshCw, Building2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mail, DollarSign, MessageSquare, Phone, Calendar, Plus, RefreshCw, Building2 } from 'lucide-react';
 
 interface NonStandardMarketSectionProps {
   submissionId: string;
@@ -11,11 +11,7 @@ interface NonStandardMarketSectionProps {
 export default function NonStandardMarketSection({ submissionId }: NonStandardMarketSectionProps) {
   const [submissions, setSubmissions] = useState<NonStandardSubmission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedSubmissions, setExpandedSubmissions] = useState<{ [key: string]: boolean }>({});
-  const [expandedCarriers, setExpandedCarriers] = useState<{ [key: string]: boolean }>({});
-  const [showAddQuote, setShowAddQuote] = useState<{ [key: string]: boolean }>({});
   const [showAddFollowup, setShowAddFollowup] = useState<{ [key: string]: boolean }>({});
-  const [newQuote, setNewQuote] = useState<Partial<NonStandardQuote>>({});
   const [newFollowup, setNewFollowup] = useState<Partial<NonStandardFollowup>>({});
   const loadingRef = useRef(false);
 
@@ -45,39 +41,6 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
   useEffect(() => {
     loadSubmissions();
   }, [loadSubmissions]);
-
-  async function handleAddQuote(nonStandardId: string, carrierEmail: string) {
-    if (!newQuote.carrier || !newQuote.received_date) {
-      alert('Please fill in carrier name and received date');
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/non-standard/${nonStandardId}/quotes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newQuote,
-          carrier_email: carrierEmail,
-        }),
-      });
-
-      if (response.ok) {
-        await loadSubmissions();
-        setNewQuote({});
-        setShowAddQuote(prev => {
-          const newState = { ...prev };
-          delete newState[`${nonStandardId}-${carrierEmail}`];
-          return newState;
-        });
-      } else {
-        alert('Failed to add quote');
-      }
-    } catch (error) {
-      console.error('Error adding quote:', error);
-      alert('Error adding quote');
-    }
-  }
 
   async function handleAddFollowup(nonStandardId: string, carrierEmail: string) {
     if (!newFollowup.date || !newFollowup.type || !newFollowup.with || !newFollowup.notes) {
@@ -139,8 +102,9 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
     }
   };
 
-  const getQuotesForCarrier = (submission: NonStandardSubmission, carrierEmail: string) => {
-    return (submission.quotes || []).filter(q => q.carrier_email === carrierEmail);
+  const getQuoteForCarrier = (submission: NonStandardSubmission, carrierEmail: string): NonStandardQuote | null => {
+    const quotes = (submission.quotes || []).filter(q => q.carrier_email === carrierEmail);
+    return quotes.length > 0 ? quotes[0] : null; // Only one quote per carrier
   };
 
   const getFollowupsForCarrier = (submission: NonStandardSubmission, carrierEmail: string) => {
@@ -190,9 +154,7 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
 
       <div className="space-y-3">
         {submissions.map((submission) => {
-          const isExpanded = expandedSubmissions[submission.id];
           const totalCarriers = submission.carriers?.length || 0;
-          const totalQuotes = submission.quotes?.length || 0;
           const totalFollowups = submission.followups?.length || 0;
 
           return (
@@ -201,13 +163,7 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <button
-                      onClick={() => setExpandedSubmissions(prev => ({ ...prev, [submission.id]: !prev[submission.id] }))}
-                      className="flex items-center gap-1 text-xs font-semibold text-black hover:text-gray-700"
-                    >
-                      {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                      <span className="truncate">{submission.subject}</span>
-                    </button>
+                    <span className="text-xs font-semibold text-black truncate">{submission.subject}</span>
                     <span className={`text-xs px-1.5 py-0.5 rounded border ${getStatusColor(submission.status)}`}>
                       {submission.status}
                     </span>
@@ -216,7 +172,7 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
                     <p><span className="font-medium">From:</span> {submission.from_email}</p>
                     <p><span className="font-medium">Sent:</span> {new Date(submission.sent_at).toLocaleDateString()}</p>
                     {totalCarriers > 0 && (
-                      <p className="text-gray-500">{totalCarriers} carrier(s) • {totalQuotes} quote(s) • {totalFollowups} followup(s)</p>
+                      <p className="text-gray-500">{totalCarriers} carrier(s) • {totalFollowups} followup(s)</p>
                     )}
                   </div>
                 </div>
@@ -233,237 +189,153 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
                 </select>
               </div>
 
-              {/* Expanded Content - Carrier Cards */}
-              {isExpanded && submission.carriers && submission.carriers.length > 0 && (
+              {/* Carrier Cards - Always Visible */}
+              {submission.carriers && submission.carriers.length > 0 && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 mt-3 pt-3 border-t border-gray-200">
                   {submission.carriers.map((carrier) => {
-                    const carrierQuotes = getQuotesForCarrier(submission, carrier.email);
+                    const carrierQuote = getQuoteForCarrier(submission, carrier.email);
                     const carrierFollowups = getFollowupsForCarrier(submission, carrier.email);
                     const carrierKey = `${submission.id}-${carrier.email}`;
-                    const isCarrierExpanded = expandedCarriers[carrierKey];
 
                     return (
                       <div key={carrier.email} className="border border-gray-200 rounded-sm p-2.5 space-y-2 bg-gray-50/30">
                         {/* Carrier Header */}
-                        <div className="flex items-start justify-between border-b border-gray-200 pb-1.5">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <Building2 className="w-3 h-3 text-emerald-600 flex-shrink-0" />
-                              <h4 className="font-semibold text-black text-xs truncate">{carrier.company}</h4>
-                            </div>
-                            <p className="text-xs text-gray-600 truncate mt-0.5">{carrier.email}</p>
-                            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                              <span>{carrierQuotes.length} quote{carrierQuotes.length !== 1 ? 's' : ''}</span>
-                              <span>•</span>
-                              <span>{carrierFollowups.length} followup{carrierFollowups.length !== 1 ? 's' : ''}</span>
-                            </div>
+                        <div className="border-b border-gray-200 pb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+                            <h4 className="font-semibold text-black text-xs truncate">{carrier.company}</h4>
                           </div>
-                          <button
-                            onClick={() => setExpandedCarriers(prev => ({ ...prev, [carrierKey]: !prev[carrierKey] }))}
-                            className="text-gray-500 hover:text-gray-700 flex-shrink-0"
-                          >
-                            {isCarrierExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          </button>
+                          <p className="text-xs text-gray-600 truncate mt-0.5">{carrier.email}</p>
                         </div>
 
-                        {/* Expanded Carrier Details */}
-                        {isCarrierExpanded && (
-                          <div className="space-y-2 pt-1.5">
-                            {/* Quotes Section */}
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <h5 className="font-medium text-black text-xs flex items-center gap-1">
-                                  <DollarSign className="w-3 h-3" />
-                                  Quotes ({carrierQuotes.length})
-                                </h5>
+                        {/* Quote Section - Always Visible */}
+                        <div className="border-b border-gray-200 pb-2">
+                          <h5 className="font-medium text-black text-xs flex items-center gap-1 mb-1.5">
+                            <DollarSign className="w-3 h-3" />
+                            Quote
+                          </h5>
+                          {carrierQuote ? (
+                            <div className="bg-green-50 border border-green-200 rounded p-1.5">
+                              <div className="space-y-0.5">
+                                {carrierQuote.amount && (
+                                  <p className="text-xs font-semibold text-green-700">${carrierQuote.amount.toLocaleString()}</p>
+                                )}
+                                {carrierQuote.received_date && (
+                                  <p className="text-xs text-gray-600">Date: {carrierQuote.received_date}</p>
+                                )}
+                                {carrierQuote.notes && (
+                                  <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{carrierQuote.notes}</p>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-500 italic">No quote received</p>
+                          )}
+                        </div>
+
+                        {/* Followups Section */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <h5 className="font-medium text-black text-xs flex items-center gap-1">
+                              <MessageSquare className="w-3 h-3" />
+                              Followups ({carrierFollowups.length})
+                            </h5>
+                            <button
+                              onClick={() => setShowAddFollowup(prev => ({ ...prev, [carrierKey]: !prev[carrierKey] }))}
+                              className="text-xs text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Add
+                            </button>
+                          </div>
+
+                          {showAddFollowup[carrierKey] && (
+                            <div className="bg-white p-2 rounded mb-1.5 space-y-1.5 border border-gray-200">
+                              <input
+                                type="datetime-local"
+                                value={newFollowup.date || ''}
+                                onChange={(e) => setNewFollowup({ ...newFollowup, date: e.target.value })}
+                                className="input-field text-xs px-2 py-1"
+                                placeholder="Date & Time"
+                              />
+                              <select
+                                value={newFollowup.type || ''}
+                                onChange={(e) => setNewFollowup({ ...newFollowup, type: e.target.value as any })}
+                                className="input-field text-xs px-2 py-1"
+                              >
+                                <option value="">Type...</option>
+                                <option value="email">Email</option>
+                                <option value="phone">Phone</option>
+                                <option value="meeting">Meeting</option>
+                                <option value="note">Note</option>
+                              </select>
+                              <input
+                                type="text"
+                                placeholder="With (email/name)"
+                                value={newFollowup.with || ''}
+                                onChange={(e) => setNewFollowup({ ...newFollowup, with: e.target.value })}
+                                className="input-field text-xs px-2 py-1"
+                              />
+                              <textarea
+                                placeholder="Notes"
+                                value={newFollowup.notes || ''}
+                                onChange={(e) => setNewFollowup({ ...newFollowup, notes: e.target.value })}
+                                className="input-field text-xs px-2 py-1"
+                                rows={2}
+                              />
+                              <div className="flex gap-1.5">
                                 <button
-                                  onClick={() => setShowAddQuote(prev => ({ ...prev, [carrierKey]: !prev[carrierKey] }))}
-                                  className="text-xs text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5"
+                                  onClick={() => handleAddFollowup(submission.id, carrier.email)}
+                                  className="btn-primary text-xs px-2 py-0.5 flex-1"
                                 >
-                                  <Plus className="w-3 h-3" />
-                                  Add
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setNewFollowup({});
+                                    setShowAddFollowup(prev => {
+                                      const newState = { ...prev };
+                                      delete newState[carrierKey];
+                                      return newState;
+                                    });
+                                  }}
+                                  className="btn-secondary text-xs px-2 py-0.5 flex-1"
+                                >
+                                  Cancel
                                 </button>
                               </div>
+                            </div>
+                          )}
 
-                              {showAddQuote[carrierKey] && (
-                                <div className="bg-white p-2 rounded mb-1.5 space-y-1.5 border border-gray-200">
-                                  <input
-                                    type="text"
-                                    placeholder="Carrier Name"
-                                    value={newQuote.carrier || ''}
-                                    onChange={(e) => setNewQuote({ ...newQuote, carrier: e.target.value })}
-                                    className="input-field text-xs px-2 py-1"
-                                  />
-                                  <input
-                                    type="number"
-                                    placeholder="Amount"
-                                    value={newQuote.amount || ''}
-                                    onChange={(e) => setNewQuote({ ...newQuote, amount: parseFloat(e.target.value) || undefined })}
-                                    className="input-field text-xs px-2 py-1"
-                                  />
-                                  <input
-                                    type="date"
-                                    value={newQuote.received_date || ''}
-                                    onChange={(e) => setNewQuote({ ...newQuote, received_date: e.target.value })}
-                                    className="input-field text-xs px-2 py-1"
-                                  />
-                                  <textarea
-                                    placeholder="Notes"
-                                    value={newQuote.notes || ''}
-                                    onChange={(e) => setNewQuote({ ...newQuote, notes: e.target.value })}
-                                    className="input-field text-xs px-2 py-1"
-                                    rows={2}
-                                  />
-                                  <div className="flex gap-1.5">
-                                    <button
-                                      onClick={() => handleAddQuote(submission.id, carrier.email)}
-                                      className="btn-primary text-xs px-2 py-0.5 flex-1"
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setNewQuote({});
-                                        setShowAddQuote(prev => {
-                                          const newState = { ...prev };
-                                          delete newState[carrierKey];
-                                          return newState;
-                                        });
-                                      }}
-                                      className="btn-secondary text-xs px-2 py-0.5 flex-1"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-
-                              {carrierQuotes.length > 0 ? (
-                                <div className="space-y-1">
-                                  {carrierQuotes.map((quote, idx) => (
-                                    <div key={quote.id || idx} className="bg-green-50 border border-green-200 rounded p-1.5">
-                                      <div className="flex items-start justify-between">
-                                        <div className="flex-1 min-w-0">
-                                          <p className="font-medium text-black text-xs">{quote.carrier}</p>
-                                          {quote.amount && (
-                                            <p className="text-xs font-semibold text-green-700">${quote.amount.toLocaleString()}</p>
-                                          )}
-                                          <p className="text-xs text-gray-500">Received: {quote.received_date}</p>
-                                          {quote.notes && <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{quote.notes}</p>}
+                          {carrierFollowups.length > 0 ? (
+                            <div className="space-y-1">
+                              {carrierFollowups
+                                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                .map((followup, idx) => (
+                                  <div key={followup.id || idx} className="bg-blue-50 border border-blue-200 rounded p-1.5">
+                                    <div className="flex items-start gap-1.5">
+                                      {followup.type === 'email' && <Mail className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
+                                      {followup.type === 'phone' && <Phone className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
+                                      {followup.type === 'meeting' && <Calendar className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
+                                      {followup.type === 'note' && <MessageSquare className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                          <span className="font-medium text-black text-xs capitalize">{followup.type}</span>
+                                          <span className="text-xs text-gray-500">
+                                            {new Date(followup.date).toLocaleString()}
+                                          </span>
                                         </div>
+                                        <p className="text-xs text-gray-600"><span className="font-medium">With:</span> {followup.with}</p>
+                                        <p className="text-xs text-gray-700 mt-0.5 line-clamp-2">{followup.notes}</p>
                                       </div>
                                     </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-xs text-gray-500 italic">No quotes yet</p>
-                              )}
-                            </div>
-
-                            {/* Followups Section */}
-                            <div className="border-t border-gray-200 pt-2">
-                              <div className="flex items-center justify-between mb-1">
-                                <h5 className="font-medium text-black text-xs flex items-center gap-1">
-                                  <MessageSquare className="w-3 h-3" />
-                                  Followups ({carrierFollowups.length})
-                                </h5>
-                                <button
-                                  onClick={() => setShowAddFollowup(prev => ({ ...prev, [carrierKey]: !prev[carrierKey] }))}
-                                  className="text-xs text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                  Add
-                                </button>
-                              </div>
-
-                              {showAddFollowup[carrierKey] && (
-                                <div className="bg-white p-2 rounded mb-1.5 space-y-1.5 border border-gray-200">
-                                  <input
-                                    type="datetime-local"
-                                    value={newFollowup.date || ''}
-                                    onChange={(e) => setNewFollowup({ ...newFollowup, date: e.target.value })}
-                                    className="input-field text-xs px-2 py-1"
-                                  />
-                                  <select
-                                    value={newFollowup.type || ''}
-                                    onChange={(e) => setNewFollowup({ ...newFollowup, type: e.target.value as any })}
-                                    className="input-field text-xs px-2 py-1"
-                                  >
-                                    <option value="">Type...</option>
-                                    <option value="email">Email</option>
-                                    <option value="phone">Phone</option>
-                                    <option value="meeting">Meeting</option>
-                                    <option value="note">Note</option>
-                                  </select>
-                                  <input
-                                    type="text"
-                                    placeholder="With (email/name)"
-                                    value={newFollowup.with || ''}
-                                    onChange={(e) => setNewFollowup({ ...newFollowup, with: e.target.value })}
-                                    className="input-field text-xs px-2 py-1"
-                                  />
-                                  <textarea
-                                    placeholder="Notes"
-                                    value={newFollowup.notes || ''}
-                                    onChange={(e) => setNewFollowup({ ...newFollowup, notes: e.target.value })}
-                                    className="input-field text-xs px-2 py-1"
-                                    rows={2}
-                                  />
-                                  <div className="flex gap-1.5">
-                                    <button
-                                      onClick={() => handleAddFollowup(submission.id, carrier.email)}
-                                      className="btn-primary text-xs px-2 py-0.5 flex-1"
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setNewFollowup({});
-                                        setShowAddFollowup(prev => {
-                                          const newState = { ...prev };
-                                          delete newState[carrierKey];
-                                          return newState;
-                                        });
-                                      }}
-                                      className="btn-secondary text-xs px-2 py-0.5 flex-1"
-                                    >
-                                      Cancel
-                                    </button>
                                   </div>
-                                </div>
-                              )}
-
-                              {carrierFollowups.length > 0 ? (
-                                <div className="space-y-1">
-                                  {carrierFollowups
-                                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                                    .map((followup, idx) => (
-                                      <div key={followup.id || idx} className="bg-blue-50 border border-blue-200 rounded p-1.5">
-                                        <div className="flex items-start gap-1.5">
-                                          {followup.type === 'email' && <Mail className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
-                                          {followup.type === 'phone' && <Phone className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
-                                          {followup.type === 'meeting' && <Calendar className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
-                                          {followup.type === 'note' && <MessageSquare className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
-                                          <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-1.5 mb-0.5">
-                                              <span className="font-medium text-black text-xs capitalize">{followup.type}</span>
-                                              <span className="text-xs text-gray-500">
-                                                {new Date(followup.date).toLocaleString()}
-                                              </span>
-                                            </div>
-                                            <p className="text-xs text-gray-600"><span className="font-medium">With:</span> {followup.with}</p>
-                                            <p className="text-xs text-gray-700 mt-0.5 line-clamp-2">{followup.notes}</p>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                </div>
-                              ) : (
-                                <p className="text-xs text-gray-500 italic">No followups yet</p>
-                              )}
+                                ))}
                             </div>
-                          </div>
-                        )}
+                          ) : (
+                            <p className="text-xs text-gray-500 italic">No followups yet</p>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
