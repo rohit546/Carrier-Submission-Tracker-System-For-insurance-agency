@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Submission, BusinessType, Carrier } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, Edit, CheckCircle } from 'lucide-react';
+import { Calendar, Edit, CheckCircle, Loader2, FileText } from 'lucide-react';
 
 // Helper function to format dates consistently (prevents hydration errors)
 function formatDate(dateString: string | null | undefined): string {
@@ -28,6 +28,7 @@ interface SubmissionListProps {
 export default function SubmissionList({ agentId }: SubmissionListProps) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
   }, []);
 
   async function loadData() {
+    setLoading(true);
     try {
       const [subs, bts] = await Promise.all([
         fetch('/api/submissions').then(r => r.json()),
@@ -46,6 +48,8 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
       setBusinessTypes(bts);
     } catch (error) {
       console.error('Failed to load submissions:', error);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -72,6 +76,29 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
     const hoursSinceCreation = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60);
     return hoursSinceCreation < 48;
   };
+
+  // Loading state with nice UI
+  if (loading) {
+    return (
+      <div className="card p-12">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <div className="relative">
+            <Loader2 className="w-12 h-12 text-emerald-600 animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <FileText className="w-6 h-6 text-emerald-500" />
+            </div>
+          </div>
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-800 mb-1">Loading Submissions</h3>
+            <p className="text-sm text-gray-500">Please wait while we fetch your data...</p>
+          </div>
+          <div className="w-64 h-1 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-full bg-emerald-600 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
