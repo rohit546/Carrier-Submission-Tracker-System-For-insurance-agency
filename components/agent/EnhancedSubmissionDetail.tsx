@@ -104,6 +104,7 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   const [lobSearchTerms, setLobSearchTerms] = useState<{ [carrierId: string]: string }>({});
   const [lobDropdownOpen, setLobDropdownOpen] = useState<{ [carrierId: string]: boolean }>({});
   const [quotedBy, setQuotedBy] = useState<string>(submission.quotedBy || '');
+  const [showQuotedByError, setShowQuotedByError] = useState(false);
   const router = useRouter();
   
   // Quoted by options
@@ -313,6 +314,12 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   const [carrierResults, setCarrierResults] = useState<{ [key: string]: any } | null>(null);
 
   async function handleAutoSubmit(selectedCarriers: CarrierType[]) {
+    // Validate "Quoted by" is filled
+    if (!quotedBy || quotedBy.trim() === '') {
+      setShowQuotedByError(true);
+      return;
+    }
+    
     setSubmitting(true);
     setSubmitStatus(null);
     setCarrierResults(null);
@@ -798,6 +805,39 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
         submissionId={submission.id}
         initialRpaTasks={submission.rpa_tasks}
       />
+
+      {/* Quoted By Validation Popup */}
+      {showQuotedByError && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowQuotedByError(false)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6 transform transition-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Quoted By Required
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Please select a "Quoted by" value in the Insured Information section before submitting.
+                </p>
+                <button
+                  onClick={() => setShowQuotedByError(false)}
+                  className="w-full px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors font-medium"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Save Button - At the bottom of the page */}
       {submission.status !== 'submitted' && submission.status !== 'bound' && (
