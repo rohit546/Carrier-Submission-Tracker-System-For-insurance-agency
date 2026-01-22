@@ -101,7 +101,7 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div>
       {submissions.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
           <div className="max-w-md mx-auto">
@@ -118,54 +118,56 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
           </div>
         </div>
       ) : (
-        submissions.map((submission) => (
-          <div 
-            key={submission.id} 
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-gray-300 transition-all duration-200 relative overflow-hidden"
-          >
-            {/* NEW Tag - Top Right */}
-            {isNewSubmission(submission) && (
-              <span className="absolute top-4 right-4 px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-full z-10 shadow-sm">
-                NEW
-              </span>
-            )}
-            
-            <div className="flex items-start justify-between mb-5">
-              <div className="flex-1 pr-4">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  {submission.businessName}
-                </h3>
-                <p className="text-sm text-gray-500 font-medium">{getBusinessTypeName(submission.businessTypeId || '')}</p>
-              </div>
-              <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${getStatusColor(submission.status)} ${isNewSubmission(submission) ? 'mr-16' : ''} shadow-sm`}>
-                {submission.status.toUpperCase()}
-              </span>
-            </div>
-            
-            <div className="flex items-center gap-6 text-sm text-gray-600 mb-5 pb-5 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-4 h-4 text-gray-500" />
-                </div>
-                <span className="font-medium">{formatDate(submission.createdAt)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-gray-500" />
-                </div>
-                <span className="font-medium">{submission.carriers.filter(c => c.quoted).length} quoted</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => router.push(`/agent/submission/${submission.id}`)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 hover:text-black transition-all duration-200 border border-gray-200 hover:border-gray-300"
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {submissions.map((submission) => (
+            <div 
+              key={submission.id} 
+              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-gray-300 transition-all duration-200 relative overflow-hidden flex flex-col h-full"
             >
-              <Edit className="w-4 h-4" />
-              View Details
-            </button>
-          </div>
-        ))
+              {/* NEW Tag - Top Right */}
+              {isNewSubmission(submission) && (
+                <span className="absolute top-4 right-4 px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-full z-10 shadow-sm">
+                  NEW
+                </span>
+              )}
+              
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1 pr-4 min-w-0">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">
+                    {submission.businessName}
+                  </h3>
+                  <p className="text-sm text-gray-500 font-medium line-clamp-1">{getBusinessTypeName(submission.businessTypeId || '')}</p>
+                </div>
+                <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${getStatusColor(submission.status)} ${isNewSubmission(submission) ? 'mr-14' : ''} shadow-sm flex-shrink-0`}>
+                  {submission.status.toUpperCase()}
+                </span>
+              </div>
+              
+              <div className="flex flex-col gap-3 text-sm text-gray-600 mb-4 pb-4 border-b border-gray-100 flex-grow">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <span className="font-medium text-xs">{formatDate(submission.createdAt)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <span className="font-medium text-xs">{submission.carriers.filter(c => c.quoted).length} quoted</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => router.push(`/agent/submission/${submission.id}`)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 hover:text-black transition-all duration-200 border border-gray-200 hover:border-gray-300 w-full mt-auto"
+              >
+                <Edit className="w-4 h-4" />
+                View Details
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
