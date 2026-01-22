@@ -270,11 +270,24 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   function updateCarrierQuote(carrierId: string, updates: Partial<CarrierQuote>) {
     const existing = localCarriers.find(c => c.carrierId === carrierId);
     
+    // Get the updated values to calculate quoted automatically
+    const updatedQuote = existing 
+      ? { ...existing, ...updates }
+      : { carrierId, quoted: false, lob: undefined, amount: null, remarks: '', selected: false, ...updates };
+    
+    // Automatically set quoted = true if amount OR remarks are filled
+    const hasAmount = updatedQuote.amount !== null && updatedQuote.amount !== undefined && updatedQuote.amount !== 0;
+    const hasRemarks = updatedQuote.remarks && updatedQuote.remarks.trim() !== '';
+    const shouldBeQuoted = hasAmount || hasRemarks;
+    
+    // Always set quoted based on amount/remarks
+    updatedQuote.quoted = shouldBeQuoted;
+    
     const newCarriers = existing
       ? localCarriers.map(c =>
-          c.carrierId === carrierId ? { ...c, ...updates } : c
+          c.carrierId === carrierId ? updatedQuote : c
         )
-      : [...localCarriers, { carrierId, quoted: false, lob: undefined, amount: null, remarks: '', selected: false, ...updates }];
+      : [...localCarriers, updatedQuote];
     
     setLocalCarriers(newCarriers);
     setSaved(false);
@@ -599,14 +612,15 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
                   {/* Carrier Header */}
                   <div className="flex items-start justify-between border-b border-gray-200 pb-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={quoted}
-                        onChange={(e) => updateCarrierQuote(carrier.id, { quoted: e.target.checked })}
-                        className="w-4 h-4 border-2 border-gray-300 rounded-sm checked:bg-black checked:border-black flex-shrink-0"
-                      />
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-semibold text-black text-sm truncate">{carrier.name}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-black text-sm truncate">{carrier.name}</h4>
+                          {quoted && (
+                            <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">
+                              Quoted
+                            </span>
+                          )}
+                        </div>
                         {appetite?.status && (
                           <span className={`text-xs px-1.5 py-0.5 rounded mt-0.5 inline-block font-medium ${
                             appetite.status === 'active' ? 'bg-green-100 text-green-700 border border-green-300' :
