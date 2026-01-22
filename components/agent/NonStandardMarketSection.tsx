@@ -26,9 +26,14 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
       if (response.ok) {
         const data = await response.json();
         setSubmissions(data);
+      } else if (response.status === 500) {
+        // Table doesn't exist yet - silently fail
+        console.warn('Non-standard submissions table not found. Please run migration.');
+        setSubmissions([]);
       }
     } catch (error) {
       console.error('Failed to load non-standard submissions:', error);
+      setSubmissions([]);
     } finally {
       setLoading(false);
     }

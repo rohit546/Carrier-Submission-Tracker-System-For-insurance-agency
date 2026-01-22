@@ -80,14 +80,32 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify(payload),
         });
 
-        const data = await response.json();
+        // Check content type before parsing
+        const contentType = response.headers.get('content-type') || '';
+        let data: any = {};
+
+        if (contentType.includes('application/json')) {
+          try {
+            data = await response.json();
+          } catch (jsonError) {
+            // If JSON parsing fails, read as text to see what we got
+            const text = await response.text();
+            console.error(`   ❌ Invalid JSON response from email server: ${text.substring(0, 200)}`);
+            throw new Error(`Email server returned invalid JSON: ${text.substring(0, 100)}`);
+          }
+        } else {
+          // Server returned HTML or other non-JSON response
+          const text = await response.text();
+          console.error(`   ❌ Email server returned non-JSON response (${contentType}): ${text.substring(0, 200)}`);
+          throw new Error(`Email server error: ${response.status} ${response.statusText}`);
+        }
 
         if (response.ok) {
-          console.log(`   ✅ Sent to ${toEmail} (ID: ${data.message_id})`);
+          console.log(`   ✅ Sent to ${toEmail} (ID: ${data.message_id || 'N/A'})`);
           results.push({ email: toEmail, success: true, messageId: data.message_id });
         } else {
           console.log(`   ❌ Failed to send to ${toEmail}: ${data.error || 'Unknown error'}`);
-          results.push({ email: toEmail, success: false, error: data.error || 'Failed to send' });
+          results.push({ email: toEmail, success: false, error: data.error || `Server error: ${response.status}` });
         }
       } catch (err: any) {
         console.log(`   ❌ Error sending to ${toEmail}: ${err.message}`);
