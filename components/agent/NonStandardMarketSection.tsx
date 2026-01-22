@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { NonStandardSubmission, NonStandardQuote, NonStandardFollowup } from '@/lib/types';
-import { Mail, DollarSign, MessageSquare, Phone, Calendar, Plus, CheckCircle, X, AlertCircle } from 'lucide-react';
+import { Mail, DollarSign, MessageSquare, Phone, Calendar, Plus, CheckCircle, X, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface NonStandardMarketSectionProps {
   submissionId: string;
@@ -18,6 +18,11 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
 
   useEffect(() => {
     loadSubmissions();
+    // Refresh every 5 seconds to catch new submissions
+    const interval = setInterval(() => {
+      loadSubmissions();
+    }, 5000);
+    return () => clearInterval(interval);
   }, [submissionId]);
 
   async function loadSubmissions() {
@@ -119,18 +124,48 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
   };
 
   if (loading) {
-    return <div className="card p-4">Loading non-standard market data...</div>;
+    return (
+      <div className="card p-6 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Mail className="w-5 h-5 text-emerald-600" />
+          <h2 className="text-xl font-bold text-black">Non-Standard Market</h2>
+        </div>
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    );
   }
 
+  // Always show the section, even if empty, so users know where to look
   if (submissions.length === 0) {
-    return null; // Don't show section if no non-standard submissions
+    return (
+      <div className="card p-6 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Mail className="w-5 h-5 text-emerald-600" />
+          <h2 className="text-xl font-bold text-black">Non-Standard Market</h2>
+        </div>
+        <p className="text-gray-500 text-sm">No non-standard market submissions yet. Send an email via Auto Submit to create one.</p>
+      </div>
+    );
   }
 
   return (
     <div className="card p-6 mb-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Mail className="w-5 h-5 text-emerald-600" />
-        <h2 className="text-xl font-bold text-black">Non-Standard Market</h2>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Mail className="w-5 h-5 text-emerald-600" />
+          <h2 className="text-xl font-bold text-black">Non-Standard Market</h2>
+          {submissions.length > 0 && (
+            <span className="text-sm text-gray-500">({submissions.length})</span>
+          )}
+        </div>
+        <button
+          onClick={() => loadSubmissions()}
+          className="text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1"
+          title="Refresh"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </button>
       </div>
 
       <div className="space-y-6">
