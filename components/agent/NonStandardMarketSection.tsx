@@ -405,21 +405,11 @@ export default function NonStandardMarketSection({ submissionId }: NonStandardMa
                                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                                 .map((followup, idx) => (
                                   <div key={followup.id || idx} className="bg-blue-50 border border-blue-200 rounded p-1.5">
-                                    <div className="flex items-start gap-1.5">
-                                      {followup.type === 'email' && <Mail className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
-                                      {followup.type === 'phone' && <Phone className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
-                                      {followup.type === 'meeting' && <Calendar className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
-                                      {followup.type === 'note' && <MessageSquare className="w-3 h-3 text-blue-600 flex-shrink-0 mt-0.5" />}
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5 mb-0.5">
-                                          <span className="font-medium text-black text-xs capitalize">{followup.type}</span>
-                                          <span className="text-xs text-gray-500">
-                                            {new Date(followup.date).toLocaleString()}
-                                          </span>
-                                        </div>
-                                        <p className="text-xs text-gray-600"><span className="font-medium">With:</span> {followup.with}</p>
-                                        <p className="text-xs text-gray-700 mt-0.5 line-clamp-2">{followup.notes}</p>
-                                      </div>
+                                    <div className="space-y-0.5">
+                                      <p className="text-xs text-gray-500">
+                                        {new Date(followup.date).toLocaleString()}
+                                      </p>
+                                      <p className="text-xs text-gray-700">{followup.notes}</p>
                                     </div>
                                   </div>
                                 ))}
