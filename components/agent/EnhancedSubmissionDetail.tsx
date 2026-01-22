@@ -314,12 +314,6 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
   const [carrierResults, setCarrierResults] = useState<{ [key: string]: any } | null>(null);
 
   async function handleAutoSubmit(selectedCarriers: CarrierType[]) {
-    // Validate "Quoted by" is filled
-    if (!quotedBy || quotedBy.trim() === '') {
-      setShowQuotedByError(true);
-      return;
-    }
-    
     setSubmitting(true);
     setSubmitStatus(null);
     setCarrierResults(null);
@@ -444,7 +438,14 @@ export default function EnhancedSubmissionDetail({ submission: initialSubmission
             Automation Status
           </button>
           <button
-            onClick={() => setShowAutoSubmitModal(true)}
+            onClick={() => {
+              // Validate "Quoted by" is filled before opening modal
+              if (!quotedBy || quotedBy.trim() === '') {
+                setShowQuotedByError(true);
+                return;
+              }
+              setShowAutoSubmitModal(true);
+            }}
             disabled={submitting || !insuredInfo}
             className="btn-primary text-xs flex items-center gap-1 px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
             title={!insuredInfo ? 'Insured information is required' : 'Submit to RPA automation'}
