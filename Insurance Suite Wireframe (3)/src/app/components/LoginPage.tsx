@@ -25,7 +25,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center mb-4">
             <img 
-              src={logoImage} 
+              src={typeof logoImage === 'string' ? logoImage : logoImage.src} 
               alt="McKinney & Co" 
               className="h-16 w-auto"
             />

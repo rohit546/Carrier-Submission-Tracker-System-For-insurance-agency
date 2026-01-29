@@ -22,7 +22,7 @@ export function Sidebar({ activeView, onNavigate, onLogout, userEmail }: Sidebar
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <img 
-            src={logoImage} 
+            src={typeof logoImage === 'string' ? logoImage : logoImage.src} 
             alt="McKinney & Co" 
             className="h-10 w-auto"
           />

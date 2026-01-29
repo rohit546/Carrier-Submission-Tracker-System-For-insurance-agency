@@ -83,7 +83,7 @@ export function CreateAccountForm({ onSubmit, onCancel }: CreateAccountFormProps
               <CardTitle className="text-2xl">Convenience Store Insurance Application</CardTitle>
             </div>
             <img 
-              src={logoImage} 
+              src={typeof logoImage === 'string' ? logoImage : logoImage.src} 
               alt="McKinney & Co" 
               className="h-8 w-auto"
             />
