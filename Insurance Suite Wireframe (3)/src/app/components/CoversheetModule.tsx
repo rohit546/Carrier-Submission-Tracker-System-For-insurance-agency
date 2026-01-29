@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -191,7 +191,7 @@ export function CoversheetModule({ accountId, accountName }: CoversheetModulePro
                     <Button
                       size="sm"
                       variant={carrier.status === "sent" ? "outline" : "default"}
-                      onClick={(e) => {
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                         e.stopPropagation();
                         if (carrier.status === "pending") {
                           handleSendToCarrier(carrier.id);
