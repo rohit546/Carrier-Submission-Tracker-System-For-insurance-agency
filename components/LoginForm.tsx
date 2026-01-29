@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -41,74 +42,100 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 relative">
-      {/* Back to Dashboard Button */}
-      <a
-        href="https://deployment-delta-eight.vercel.app/"
-        className="absolute top-4 left-4 flex items-center gap-2 text-gray-600 hover:text-black transition-colors text-sm"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Back to Dashboard
-      </a>
-
-      <div className="max-w-md w-full">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-black mb-2">McKinney & Co</h1>
-          <p className="text-gray-600">Submission Tracker</p>
+          <div className="inline-flex items-center justify-center mb-4">
+            <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mr-3">
+              <span className="text-white font-bold text-2xl">M</span>
+            </div>
+            <div className="text-left">
+              <h1 className="text-lg font-bold text-green-600 leading-tight">McKinney & Co.</h1>
+              <p className="text-xs text-gray-600 leading-tight">Small Business Insurance</p>
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold text-black mb-2">Insurance Suite</h1>
+          <p className="text-gray-600">Sign in to your account</p>
         </div>
 
-        <div className="card p-8">
-          <h2 className="text-2xl font-semibold text-black mb-6">Login</h2>
+        {/* Login Card */}
+        <div className="bg-white rounded-xl shadow-xl border-0 p-8">
+          <h2 className="text-2xl font-bold text-black mb-6 text-center">Welcome Back</h2>
           
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-black mb-1.5">
-                Username
+              <label className="block text-sm font-medium text-black mb-2">
+                Email
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="input-field"
+                placeholder="your@email.com"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-black mb-1.5">
+              <label className="block text-sm font-medium text-black mb-2">
                 Password
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input-field"
+                placeholder="Enter your password"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
                 required
               />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="remember"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 border-gray-300 rounded text-green-600 focus:ring-green-600"
+                />
+                <label htmlFor="remember" className="ml-2 text-sm text-gray-700">
+                  Remember me
+                </label>
+              </div>
+              <a href="#" className="text-sm text-green-600 hover:text-green-700 font-medium">
+                Forgot password?
+              </a>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full"
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
-          </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-200 text-sm text-gray-500">
-            <p className="mb-2">Demo Credentials:</p>
-            <p>Admin: admin / admin123</p>
-            <p>Agent: agent / agent123</p>
-          </div>
+            <div className="text-center text-sm text-gray-600 mt-4">
+              Don't have an account?{' '}
+              <a href="#" className="text-green-600 hover:text-green-700 font-medium">
+                Contact Admin
+              </a>
+            </div>
+          </form>
+        </div>
+
+        {/* Copyright */}
+        <div className="text-center mt-8 text-sm text-gray-500">
+          © 2024 McKinney & Co. All rights reserved.
         </div>
       </div>
     </div>
