@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { BusinessType, Carrier, CarrierAppetite } from '@/lib/types';
-
+//addd
 export default function CarrierAppetiteManager() {
   const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([]);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
