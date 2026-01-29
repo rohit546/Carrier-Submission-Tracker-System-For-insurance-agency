@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
-import Navbar from '@/components/Navbar';
+import Sidebar from '@/components/agent/Sidebar';
 import SubmissionList from '@/components/agent/SubmissionList';
 import NewSubmissionButton from '@/components/agent/NewSubmissionButton';
 import { getUsers } from '@/lib/db';
@@ -20,25 +20,22 @@ export default async function AgentPage() {
   const currentUser = users.find(u => u.id === user.userId);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar user={{ name: currentUser?.name || 'Agent', role: 'agent' }} />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Back to Dashboard Button */}
-        <a
-          href="https://deployment-delta-eight.vercel.app/"
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors text-sm mb-6 px-3 py-2 rounded-lg hover:bg-gray-100"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to Dashboard
-        </a>
-
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">My Submissions</h2>
-          <NewSubmissionButton />
+    <div className="min-h-screen bg-gray-50 flex">
+      <Sidebar 
+        userEmail={currentUser?.username || 'agent@example.com'} 
+        userName={currentUser?.name || 'Agent'}
+      />
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 p-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">My Accounts</h1>
+            <p className="text-gray-600">Manage and track all your insurance submissions.</p>
+          </div>
+          <div className="flex justify-end mb-6">
+            <NewSubmissionButton />
+          </div>
+          <SubmissionList agentId={user.userId} />
         </div>
-        <SubmissionList agentId={user.userId} />
       </div>
     </div>
   );

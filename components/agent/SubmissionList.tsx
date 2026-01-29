@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Submission, BusinessType, Carrier } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, Edit, CheckCircle, Loader2, FileText, Search, X } from 'lucide-react';
+import { Calendar, Edit, CheckCircle, Loader2, FileText, Search, X, ArrowRight, TrendingUp, FileCheck } from 'lucide-react';
 
 // Helper function to format dates consistently (prevents hydration errors)
 function formatDate(dateString: string | null | undefined): string {
@@ -61,11 +61,40 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'bound': return 'bg-black text-white';
-      case 'submitted': return 'bg-gray-700 text-white';
-      case 'quoted': return 'bg-gray-600 text-white';
-      default: return 'bg-gray-200 text-gray-700';
+      case 'bound': 
+      case 'submitted': 
+      case 'quoted': return 'bg-emerald-600 text-white'; // ACTIVE
+      case 'completed': return 'bg-blue-600 text-white'; // COMPLETED
+      default: return 'bg-gray-300 text-gray-700'; // DRAFT
     }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'bound': 
+      case 'submitted': 
+      case 'quoted': return 'ACTIVE';
+      case 'completed': return 'COMPLETED';
+      default: return 'DRAFT';
+    }
+  };
+
+  // Calculate progress percentage based on status and quoted carriers
+  const calculateProgress = (submission: Submission) => {
+    if (submission.status === 'bound' || submission.status === 'completed') return 100;
+    const quotedCount = submission.carriers.filter(c => c.quoted).length;
+    const totalCarriers = submission.carriers.length || 1;
+    const baseProgress = submission.status === 'draft' ? 20 : submission.status === 'quoted' ? 60 : 40;
+    const carrierProgress = (quotedCount / totalCarriers) * 30;
+    return Math.min(100, Math.round(baseProgress + carrierProgress));
+  };
+
+  // Calculate summary statistics
+  const summaryStats = {
+    total: submissions.length,
+    active: submissions.filter(s => ['bound', 'submitted', 'quoted'].includes(s.status)).length,
+    completed: submissions.filter(s => s.status === 'bound' || s.status === 'completed').length,
+    draft: submissions.filter(s => s.status === 'draft').length,
   };
 
   const isNewSubmission = (submission: Submission) => {
@@ -139,6 +168,56 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
               </div>
               <div className="w-72 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div className="h-full bg-emerald-600 rounded-full animate-pulse" style={{ width: '70%' }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Summary Cards */}
+      {submissions.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Total Accounts</p>
+                <p className="text-2xl font-bold text-gray-900">{summaryStats.total}</p>
+              </div>
+              <div className="w-12 h-12 bg-emerald-50 rounded-lg flex items-center justify-center">
+                <FileText className="w-6 h-6 text-emerald-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Active</p>
+                <p className="text-2xl font-bold text-gray-900">{summaryStats.active}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Completed</p>
+                <p className="text-2xl font-bold text-gray-900">{summaryStats.completed}</p>
+              </div>
+              <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
+                <FileCheck className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Draft</p>
+                <p className="text-2xl font-bold text-gray-900">{summaryStats.draft}</p>
+              </div>
+              <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
+                <FileText className="w-6 h-6 text-orange-600" />
               </div>
             </div>
           </div>
@@ -223,28 +302,38 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
               
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1 pr-4 min-w-0">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">
+                  <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-2">
                     {submission.businessName}
                   </h3>
                   <p className="text-sm text-gray-500 font-medium line-clamp-1">{getBusinessTypeName(submission.businessTypeId || '')}</p>
                 </div>
-                <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${getStatusColor(submission.status)} ${isNewSubmission(submission) ? 'mr-14' : ''} shadow-sm flex-shrink-0`}>
-                  {submission.status.toUpperCase()}
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(submission.status)} ${isNewSubmission(submission) ? 'mr-14' : ''} shadow-sm flex-shrink-0`}>
+                  {getStatusLabel(submission.status)}
                 </span>
               </div>
               
-              <div className="flex flex-col gap-3 text-sm text-gray-600 mb-4 pb-4 border-b border-gray-100 flex-grow">
+              {/* Progress Bar */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-600 font-medium">Progress</span>
+                  <span className="text-xs font-bold text-gray-900">{calculateProgress(submission)}%</span>
+                </div>
+                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-emerald-600 rounded-full transition-all duration-300"
+                    style={{ width: `${calculateProgress(submission)}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              <div className="flex flex-col gap-2 text-sm text-gray-600 mb-4 pb-4 border-b border-gray-100 flex-grow">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <span className="font-medium text-xs">{formatDate(submission.createdAt)}</span>
+                  <Calendar className="w-4 h-4 text-gray-400" />
+                  <span className="text-xs text-gray-600">{formatDate(submission.createdAt)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <span className="font-medium text-xs">{submission.carriers.filter(c => c.quoted).length} quoted</span>
+                  <FileText className="w-4 h-4 text-gray-400" />
+                  <span className="text-xs text-gray-600">{submission.carriers.filter(c => c.quoted).length} {submission.carriers.filter(c => c.quoted).length === 1 ? 'quote' : 'quotes'}</span>
                 </div>
               </div>
 
@@ -254,10 +343,10 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
                   router.push(`/agent/submission/${submission.id}`);
                 }}
                 disabled={navigatingTo !== null}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 hover:text-black transition-all duration-200 border border-gray-200 hover:border-gray-300 w-full mt-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-all duration-200 w-full mt-auto disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Edit className="w-4 h-4" />
                 View Details
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           ))}
