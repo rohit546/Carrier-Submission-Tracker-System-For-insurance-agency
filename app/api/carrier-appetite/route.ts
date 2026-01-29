@@ -7,7 +7,7 @@ export async function GET() {
   if (!user || user.role !== 'admin') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
+//added
   const appetites = await getCarrierAppetite();
   return NextResponse.json(appetites);
 }
