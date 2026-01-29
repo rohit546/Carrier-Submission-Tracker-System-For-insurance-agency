@@ -20,23 +20,16 @@ export default async function AgentPage() {
   const currentUser = users.find(u => u.id === user.userId);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="flex h-screen bg-gray-50">
       <Sidebar 
         userEmail={currentUser?.username || 'agent@example.com'} 
         userName={currentUser?.name || 'Agent'}
       />
-      <div className="flex-1 flex flex-col">
-        <div className="flex-1 p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">My Accounts</h1>
-            <p className="text-gray-600">Manage and track all your insurance submissions.</p>
-          </div>
-          <div className="flex justify-end mb-6">
-            <NewSubmissionButton />
-          </div>
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-8">
           <SubmissionList agentId={user.userId} />
         </div>
-      </div>
+      </main>
     </div>
   );
 }

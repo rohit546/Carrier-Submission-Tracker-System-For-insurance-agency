@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { Home, Settings, HelpCircle, LogOut, ArrowRight } from 'lucide-react';
+import { Home, Settings, HelpCircle, LogOut } from 'lucide-react';
 
 interface SidebarProps {
   userEmail: string;
@@ -25,19 +25,15 @@ export default function Sidebar({ userEmail, userName }: SidebarProps) {
   };
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
-      {/* Branding */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+    <aside className="w-64 bg-white border-r border-gray-100 flex flex-col h-screen">
+      {/* Logo */}
+      <div className="p-6 border-b border-gray-100">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-lg">M</span>
           </div>
-          <div>
-            <h1 className="text-sm font-bold text-gray-900">McKinney & CO.</h1>
-            <p className="text-xs text-gray-500">Small Business Insurance</p>
-          </div>
         </div>
-        <p className="text-xs text-gray-600 mt-3 font-medium">Agent Portal</p>
+        <p className="text-xs text-gray-500 mt-2">Agent Portal</p>
       </div>
 
       {/* Navigation */}
@@ -45,46 +41,46 @@ export default function Sidebar({ userEmail, userName }: SidebarProps) {
         <div className="space-y-1">
           <button
             onClick={() => router.push('/agent')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
               isActive('/agent')
-                ? 'bg-emerald-50 text-emerald-700'
-                : 'text-gray-700 hover:bg-gray-50'
+                ? 'bg-green-50 text-green-600'
+                : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
             <Home className="w-5 h-5" />
-            Home
+            <span>Home</span>
           </button>
           <button
             onClick={() => {}}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-200"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all"
           >
             <Settings className="w-5 h-5" />
-            Settings
+            <span>Settings</span>
           </button>
           <button
             onClick={() => {}}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-200"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all"
           >
             <HelpCircle className="w-5 h-5" />
-            Help
+            <span>Help</span>
           </button>
         </div>
       </nav>
 
-      {/* User Info & Logout */}
-      <div className="p-4 border-t border-gray-200">
-        <div className="mb-3">
-          <p className="text-xs text-gray-500 mb-1">Agent</p>
-          <p className="text-sm font-medium text-gray-900">{userEmail}</p>
+      {/* User Profile & Logout */}
+      <div className="p-4 border-t border-gray-100">
+        <div className="mb-3 p-3 bg-gray-50 rounded-xl">
+          <p className="text-sm truncate">{userEmail}</p>
+          <p className="text-xs text-gray-500">Agent</p>
         </div>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
         >
           <LogOut className="w-4 h-4" />
           Logout
         </button>
       </div>
-    </div>
+    </aside>
   );
 }

@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { Submission, BusinessType, Carrier } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, Edit, CheckCircle, Loader2, FileText, Search, X, ArrowRight, TrendingUp, FileCheck } from 'lucide-react';
+import { Calendar, FileText, Loader2, Search, X, ArrowRight, TrendingUp, Building2 } from 'lucide-react';
+import NewSubmissionButton from './NewSubmissionButton';
 
 // Helper function to format dates consistently (prevents hydration errors)
 function formatDate(dateString: string | null | undefined): string {
@@ -63,9 +64,9 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
     switch (status) {
       case 'bound': 
       case 'submitted': 
-      case 'quoted': return 'bg-emerald-600 text-white'; // ACTIVE
-      case 'completed': return 'bg-blue-600 text-white'; // COMPLETED
-      default: return 'bg-gray-300 text-gray-700'; // DRAFT
+      case 'quoted': return 'bg-green-100 text-green-700 border-green-200'; // ACTIVE
+      case 'completed': return 'bg-blue-100 text-blue-700 border-blue-200'; // COMPLETED
+      default: return 'bg-gray-100 text-gray-700 border-gray-200'; // DRAFT
     }
   };
 
@@ -174,49 +175,60 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
         </div>
       )}
 
-      {/* Summary Cards */}
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-3xl font-bold text-gray-900">My Accounts</h2>
+          <NewSubmissionButton />
+        </div>
+        <p className="text-gray-600">
+          Manage and track all your insurance submissions
+        </p>
+      </div>
+
+      {/* Stats Cards */}
       {submissions.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-gradient-to-br from-green-50 to-white rounded-xl shadow-sm border-0 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Accounts</p>
                 <p className="text-2xl font-bold text-gray-900">{summaryStats.total}</p>
               </div>
-              <div className="w-12 h-12 bg-emerald-50 rounded-lg flex items-center justify-center">
-                <FileText className="w-6 h-6 text-emerald-600" />
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <Building2 className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-sm border-0 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Active</p>
                 <p className="text-2xl font-bold text-gray-900">{summaryStats.active}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-gradient-to-br from-purple-50 to-white rounded-xl shadow-sm border-0 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Completed</p>
                 <p className="text-2xl font-bold text-gray-900">{summaryStats.completed}</p>
               </div>
-              <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
-                <FileCheck className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                <FileText className="w-6 h-6 text-purple-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-gradient-to-br from-orange-50 to-white rounded-xl shadow-sm border-0 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Draft</p>
                 <p className="text-2xl font-bold text-gray-900">{summaryStats.draft}</p>
               </div>
-              <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
                 <FileText className="w-6 h-6 text-orange-600" />
               </div>
             </div>
@@ -287,66 +299,81 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredSubmissions.map((submission) => (
             <div 
               key={submission.id} 
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-gray-300 transition-all duration-200 relative overflow-hidden flex flex-col h-full"
+              onClick={() => {
+                setNavigatingTo(submission.id);
+                router.push(`/agent/submission/${submission.id}`);
+              }}
+              className="bg-white rounded-xl shadow-sm border-0 p-6 hover:shadow-xl transition-all duration-300 cursor-pointer group"
             >
-              {/* NEW Tag - Top Right */}
-              {isNewSubmission(submission) && (
-                <span className="absolute top-4 right-4 px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-full z-10 shadow-sm">
-                  NEW
-                </span>
-              )}
-              
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1 pr-4 min-w-0">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-2">
+              {/* Header */}
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Building2 className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-bold text-gray-900 mb-1 truncate group-hover:text-green-600 transition-colors">
                     {submission.businessName}
                   </h3>
-                  <p className="text-sm text-gray-500 font-medium line-clamp-1">{getBusinessTypeName(submission.businessTypeId || '')}</p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(submission.status)} ${isNewSubmission(submission) ? 'mr-14' : ''} shadow-sm flex-shrink-0`}>
-                  {getStatusLabel(submission.status)}
-                </span>
-              </div>
-              
-              {/* Progress Bar */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-gray-600 font-medium">Progress</span>
-                  <span className="text-xs font-bold text-gray-900">{calculateProgress(submission)}%</span>
-                </div>
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-emerald-600 rounded-full transition-all duration-300"
-                    style={{ width: `${calculateProgress(submission)}%` }}
-                  ></div>
-                </div>
-              </div>
-              
-              <div className="flex flex-col gap-2 text-sm text-gray-600 mb-4 pb-4 border-b border-gray-100 flex-grow">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  <span className="text-xs text-gray-600">{formatDate(submission.createdAt)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-gray-400" />
-                  <span className="text-xs text-gray-600">{submission.carriers.filter(c => c.quoted).length} {submission.carriers.filter(c => c.quoted).length === 1 ? 'quote' : 'quotes'}</span>
+                  {getBusinessTypeName(submission.businessTypeId || '') && (
+                    <p className="text-sm text-gray-500 truncate">
+                      {getBusinessTypeName(submission.businessTypeId || '')}
+                    </p>
+                  )}
                 </div>
               </div>
 
+              {/* Status Badge */}
+              <div className="mb-4">
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(submission.status)}`}>
+                  {getStatusLabel(submission.status)}
+                </span>
+              </div>
+
+              {/* Progress */}
+              {calculateProgress(submission) !== undefined && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-gray-600">Progress</span>
+                    <span className="text-green-600 font-semibold">
+                      {calculateProgress(submission)}%
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-green-600 rounded-full transition-all duration-300"
+                      style={{ width: `${calculateProgress(submission)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Meta Information */}
+              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                <div className="flex items-center gap-1 text-sm text-gray-500">
+                  <Calendar className="w-4 h-4" />
+                  {formatDate(submission.createdAt)}
+                </div>
+                <div className="flex items-center gap-1 text-sm text-gray-500">
+                  <FileText className="w-4 h-4" />
+                  {submission.carriers.filter(c => c.quoted).length || 0} {submission.carriers.filter(c => c.quoted).length === 1 ? 'quote' : 'quotes'}
+                </div>
+              </div>
+
+              {/* Hover Action */}
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setNavigatingTo(submission.id);
                   router.push(`/agent/submission/${submission.id}`);
                 }}
                 disabled={navigatingTo !== null}
-                className="inline-flex items-center justify-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-all duration-200 w-full mt-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full mt-4 text-green-600 hover:bg-green-50 opacity-0 group-hover:opacity-100 transition-opacity py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                View Details
-                <ArrowRight className="w-4 h-4" />
+                View Details →
               </button>
             </div>
           ))}
