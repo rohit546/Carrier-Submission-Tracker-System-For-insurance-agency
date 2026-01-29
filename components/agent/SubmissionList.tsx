@@ -82,7 +82,7 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
 
   // Calculate progress percentage based on status and quoted carriers
   const calculateProgress = (submission: Submission) => {
-    if (submission.status === 'bound' || submission.status === 'completed') return 100;
+    if (submission.status === 'bound') return 100;
     const quotedCount = submission.carriers.filter(c => c.quoted).length;
     const totalCarriers = submission.carriers.length || 1;
     const baseProgress = submission.status === 'draft' ? 20 : submission.status === 'quoted' ? 60 : 40;
@@ -94,7 +94,7 @@ export default function SubmissionList({ agentId }: SubmissionListProps) {
   const summaryStats = {
     total: submissions.length,
     active: submissions.filter(s => ['bound', 'submitted', 'quoted'].includes(s.status)).length,
-    completed: submissions.filter(s => s.status === 'bound' || s.status === 'completed').length,
+    completed: submissions.filter(s => s.status === 'bound').length,
     draft: submissions.filter(s => s.status === 'draft').length,
   };
 
