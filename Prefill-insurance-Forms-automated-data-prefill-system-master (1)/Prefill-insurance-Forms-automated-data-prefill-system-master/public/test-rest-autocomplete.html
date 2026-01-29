@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Library Autocomplete (Working)</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDMyFvqQx5cHw3bZaL85NFWYVo6Dfq8qfo&libraries=places"></script>YPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REST API Autocomplete - WORKING!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 30px; }
+        
+        .input-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        .suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .suggestions.show { display: block; }
+        
+        .suggestion-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .suggestion-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .suggestion-main {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .suggestion-secondary {
+            font-size: 13px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        
+        button {
+            background: #000;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover { background: #333; }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f9ff;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+            display: none;
+        }
+        .result.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ REST API Autocomplete (WORKING!)</h1>
+        <p class="subtitle">Using Google Places Autocomplete (New) REST API</p>
+        
+        <div id="status" class="status info">Ready! Start typing an address...</div>
+
+        <div class="input-wrapper">
+            <input 
+                id="address-input" 
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Type an address (e.g., 4964 Lavista Rd)"
+            />
+            <div id="suggestions" class="suggestions"></div>
+        </div>
+
+        <button onclick="useCurrentValue()">Use Current Value</button>
+
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        const input = document.getElementById('address-input');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const statusDiv = document.getElementById('status');
+        const resultDiv = document.getElementById('result');
+        
+        let selectedAddress = '';
+        let autocompleteService;
+
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        // Initialize Google Places services (using working deprecated API)
+        function initAutocomplete() {
+            autocompleteService = new google.maps.places.AutocompleteService();
+            showStatus('✅ Ready to search', 'success');
+        }
+
+        // Fetch suggestions using deprecated but WORKING API
+        function fetchSuggestions(inputText) {
+            if (!inputText || inputText.length < 3) {
+                suggestionsDiv.classList.remove('show');
+                return;
+            }
+
+            if (!autocompleteService) {
+                showStatus('⏳ Loading...', 'info');
+                return;
+            }
+
+            showStatus('⏳ Fetching suggestions...', 'info');
+            
+            const request = {
+                input: inputText,
+                location: new google.maps.LatLng(33.7490, -84.3880), // Atlanta
+                radius: 50000,
+                componentRestrictions: { country: 'us' }
+            };
+
+            autocompleteService.getPlacePredictions(request, (predictions, status) => {
+                console.log('Predictions:', predictions);
+                console.log('Status:', status);
+
+                if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+                    // Convert to our display format
+                    const suggestions = predictions.map(prediction => ({
+                        placePrediction: {
+                            text: { text: prediction.description },
+                            structuredFormat: {
+                                mainText: { text: prediction.structured_formatting.main_text },
+                                secondaryText: { text: prediction.structured_formatting.secondary_text || '' }
+                            },
+                            placeId: prediction.place_id
+                        }
+                    }));
+                    
+                    displaySuggestions(suggestions);
+                    showStatus(`✅ Found ${predictions.length} suggestions`, 'success');
+                } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+                    suggestionsDiv.innerHTML = '<div class="suggestion-item">No suggestions found</div>';
+                    suggestionsDiv.classList.add('show');
+                    showStatus('No suggestions found', 'info');
+                } else {
+                    console.error('Error:', status);
+                    showStatus('❌ Error: ' + status, 'error');
+                    suggestionsDiv.classList.remove('show');
+                }
+            });
+        }
+
+        // Initialize when page loads
+        window.onload = initAutocomplete;
+
+        // Display suggestions in dropdown
+        function displaySuggestions(suggestions) {
+            suggestionsDiv.innerHTML = '';
+            
+            suggestions.forEach(suggestion => {
+                const prediction = suggestion.placePrediction;
+                if (!prediction) return;
+
+                const item = document.createElement('div');
+                item.className = 'suggestion-item';
+                
+                const mainText = document.createElement('div');
+                mainText.className = 'suggestion-main';
+                mainText.textContent = prediction.structuredFormat?.mainText?.text || prediction.text?.text || '';
+                
+                const secondaryText = document.createElement('div');
+                secondaryText.className = 'suggestion-secondary';
+                secondaryText.textContent = prediction.structuredFormat?.secondaryText?.text || '';
+                
+                item.appendChild(mainText);
+                item.appendChild(secondaryText);
+                
+                item.onclick = () => selectSuggestion(prediction);
+                
+                suggestionsDiv.appendChild(item);
+            });
+            
+            suggestionsDiv.classList.add('show');
+        }
+
+        // Handle suggestion selection
+        function selectSuggestion(prediction) {
+            const fullAddress = prediction.text?.text || '';
+            input.value = fullAddress;
+            selectedAddress = fullAddress;
+            
+            suggestionsDiv.classList.remove('show');
+            
+            resultDiv.innerHTML = `
+                <strong>✅ Selected Address:</strong><br>
+                ${fullAddress}<br><br>
+                <strong>Place ID:</strong> ${prediction.placeId || 'N/A'}
+            `;
+            resultDiv.classList.add('show');
+            
+            showStatus('✅ Address selected!', 'success');
+            console.log('Selected:', prediction);
+        }
+
+        // Handle typing with debounce
+        input.addEventListener('input', (e) => {
+            clearTimeout(typingTimer);
+            const value = e.target.value;
+            
+            console.log('Typing:', value);
+            
+            if (value.length < 3) {
+                suggestionsDiv.classList.remove('show');
+                showStatus('Type at least 3 characters...', 'info');
+                return;
+            }
+            
+            // Debounce: wait 500ms after user stops typing
+            typingTimer = setTimeout(() => {
+                fetchSuggestions(value);
+            }, 500);
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!input.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                suggestionsDiv.classList.remove('show');
+            }
+        });
+
+        // Use current value
+        function useCurrentValue() {
+            const value = input.value;
+            if (!value) {
+                alert('Please type an address first!');
+                return;
+            }
+            
+            console.log('Using value:', value);
+            console.log('Selected address:', selectedAddress);
+            alert('Current value: ' + value + '\n\nThis would be sent to your backend!');
+        }
+
+        console.log('✅ REST API Autocomplete ready!');
+        console.log('Type at least 3 characters to see suggestions');
+    </script>
+</body>
+</html>

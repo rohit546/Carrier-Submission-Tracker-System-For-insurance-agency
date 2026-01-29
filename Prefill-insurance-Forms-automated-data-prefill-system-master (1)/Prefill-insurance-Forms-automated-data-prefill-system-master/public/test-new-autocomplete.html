@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEW Google Places Autocomplete Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        input {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            margin-bottom: 15px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        button {
+            background: #000;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #333;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f9ff;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+            display: none;
+        }
+        .result.show {
+            display: block;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        /* Style for the new Place Autocomplete Element */
+        gmp-place-autocomplete {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 NEW Google Places API Test</h1>
+        <p class="subtitle">Using the recommended PlaceAutocompleteElement (March 2025+)</p>
+        
+        <div id="status" class="status info">⏳ Loading Google Places API...</div>
+
+        <h3>Method 1: NEW Web Component (Recommended)</h3>
+        <gmp-place-autocomplete id="place-autocomplete"></gmp-place-autocomplete>
+
+        <h3 style="margin-top: 30px;">Method 2: Regular Input (Fallback)</h3>
+        <input 
+            id="regular-input" 
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Type freely here - no autocomplete interference"
+        />
+
+        <button onclick="logAddresses()">Log Both Values</button>
+
+        <div id="result" class="result">
+            <strong>Results:</strong>
+            <div id="address-display"></div>
+        </div>
+    </div>
+
+    <!-- NEW Google Maps API with extended component library -->
+    <script>
+        (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.googleapis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+            key: "AIzaSyBn3-zql-7uCUNKGGMnGMUqBDzH0cOQQJs",
+            v: "weekly"
+        });
+    </script>
+
+    <script>
+        let placeAutocomplete;
+        let selectedPlace = null;
+        const statusDiv = document.getElementById('status');
+        const resultDiv = document.getElementById('result');
+        const addressDisplay = document.getElementById('address-display');
+        const regularInput = document.getElementById('regular-input');
+
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        // Initialize the NEW Place Autocomplete Element
+        async function initPlaceAutocomplete() {
+            try {
+                showStatus('⏳ Loading Place Autocomplete library...', 'info');
+                console.log('Starting initialization...');
+                
+                // Load the new Places library
+                console.log('Importing places library...');
+                await google.maps.importLibrary("places");
+                console.log('Places library loaded');
+                
+                placeAutocomplete = document.getElementById('place-autocomplete');
+                console.log('Element found:', placeAutocomplete);
+                
+                // Just set a placeholder - don't configure properties that aren't supported
+                placeAutocomplete.setAttribute('placeholder', 'Enter an address in the US');
+                
+                console.log('Autocomplete configured with placeholder only');
+                
+                // Listen for place selection
+                placeAutocomplete.addEventListener('gmp-placeselect', async (event) => {
+                    console.log('🎉 Place selected event:', event);
+                    const place = event.place;
+                    console.log('Place details:', place);
+                    
+                    await place.fetchFields({
+                        fields: ['displayName', 'formattedAddress', 'location']
+                    });
+                    
+                    const address = place.formattedAddress || place.displayName || 'Unknown';
+                    selectedPlace = place;
+                    
+                    addressDisplay.innerHTML = `
+                        <p><strong>✅ Selected:</strong> ${address}</p>
+                        ${place.location ? `<p><strong>Location:</strong> ${place.location.lat()}, ${place.location.lng()}</p>` : ''}
+                    `;
+                    resultDiv.classList.add('show');
+                    
+                    showStatus('✅ Address selected: ' + address, 'success');
+                    console.log('Full place object:', place);
+                });
+
+                showStatus('✅ Ready! Type an address (e.g., "4964 Lavista Rd Atlanta")', 'success');
+                console.log('✅ Initialized - Try typing an address now');
+                
+            } catch (error) {
+                showStatus('❌ Error: ' + error.message, 'error');
+                console.error('Initialization error:', error);
+                console.error('Error stack:', error.stack);
+            }
+        }
+
+        // Log both values
+        function logAddresses() {
+            const regularValue = regularInput.value;
+            const newApiValue = placeAutocomplete.value || 'Nothing selected';
+            
+            console.log('Regular Input:', regularValue);
+            console.log('NEW API Input:', newApiValue);
+            console.log('Selected Place:', selectedPlace);
+            
+            alert(`Regular Input: ${regularValue}\n\nNEW API: ${newApiValue}\n\n(Check console for details)`);
+        }
+
+        // Track typing in regular input
+        regularInput.addEventListener('input', (e) => {
+            console.log('Regular input typing:', e.target.value);
+        });
+
+        // Initialize when page loads
+        initPlaceAutocomplete();
+    </script>
+</body>
+</html>
