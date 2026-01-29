@@ -189,7 +189,7 @@ export function AccountsList({
               <Button
                 variant="ghost"
                 className="w-full mt-4 text-green-600 hover:bg-green-50 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => {
+                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                   e.stopPropagation();
                   onViewDetails(submission);
                 }}
