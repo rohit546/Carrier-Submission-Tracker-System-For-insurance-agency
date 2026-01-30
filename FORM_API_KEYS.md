@@ -6,9 +6,11 @@ To enable the address search and property data fetching features, you need to ad
 
 ### 1. SmartyStreets API Credentials
 ```env
-SMARTY_AUTH_ID=your_smarty_auth_id_here
-SMARTY_AUTH_TOKEN=your_smarty_auth_token_here
+SMARTY_AUTH_ID=632e75ce-01e0-8330-013e-007b76c4678e
+SMARTY_AUTH_TOKEN=m7QYqW7Lq624LhfMV23H
 ```
+
+**✅ Credentials provided - Add these to your `.env` file**
 
 **How to get:**
 - Sign up at https://www.smartystreets.com/
