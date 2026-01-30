@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import AddressSearch from './AddressSearch';
+import PropertyDataModal from './PropertyDataModal';
+import { Eye } from 'lucide-react';
 
 // Types matching the original form
 interface Building {
@@ -137,10 +140,67 @@ export default function InsuranceForm() {
     name: '',
     address: ''
   });
+  
+  const [propertyData, setPropertyData] = useState<any>(null);
+  const [showPropertyModal, setShowPropertyModal] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState('');
 
   const onSubmit = (data: FormData) => {
     console.log('Form submitted:', data);
     // TODO: Implement submission logic
+  };
+
+  const handleAddressSelect = (address: string) => {
+    setSelectedAddress(address);
+    setValue('address', address);
+  };
+
+  const handleFetchData = async (address: string) => {
+    setIsFetchingData(true);
+    try {
+      const response = await fetch('/api/form/prefill', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ address }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setPropertyData(result);
+        setShowPropertyModal(true);
+        
+        // Auto-fill form fields if data is available
+        if (result.data) {
+          const data = result.data;
+          if (data.corporationName) setValue('corporationName', data.corporationName);
+          if (data.address) setValue('address', data.address);
+          if (data.dba) setValue('dba', data.dba);
+          if (data.contactNumber) setValue('contactNumber', data.contactNumber);
+          if (data.yearBuilt) setValue('yearBuilt', data.yearBuilt);
+          if (data.totalSqFootage || data.buildingSqft) setValue('totalSqFootage', data.totalSqFootage || data.buildingSqft);
+          if (data.construction_type || data.constructionType) setValue('constructionType', data.construction_type || data.constructionType);
+          if (data.operationDescription) setValue('operationDescription', data.operationDescription);
+          if (data.ownershipType) setValue('ownershipType', data.ownershipType);
+          if (data.applicantType) setValue('applicantType', data.applicantType);
+          if (data.hoursOfOperation) setValue('hoursOfOperation', data.hoursOfOperation);
+          if (data.building) setValue('building', data.building);
+          if (data.canopy) setValue('canopy', data.canopy);
+          if (data.protectionClass) setValue('protectionClass', data.protectionClass);
+          if (data.mailingAddress?.fullAddress) setValue('mailingAddress', data.mailingAddress.fullAddress);
+        }
+      } else {
+        alert(`Failed to fetch data: ${result.message}`);
+      }
+    } catch (error: any) {
+      console.error('Error fetching property data:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsFetchingData(false);
+    }
   };
 
   const handleAddBuilding = () => {
@@ -193,7 +253,27 @@ export default function InsuranceForm() {
 
   return (
     <div className="bg-white rounded-2xl shadow-lg p-8">
+      {/* View Property Data Button */}
+      {propertyData && (
+        <div className="mb-6 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowPropertyModal(true)}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors flex items-center gap-2"
+          >
+            <Eye className="w-4 h-4" />
+            View Property Data
+          </button>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Address Search Section */}
+        <AddressSearch
+          onAddressSelect={handleAddressSelect}
+          onFetchData={handleFetchData}
+          isLoading={isFetchingData}
+        />
         {/* Company Information Section */}
         <div className="border-b border-gray-200 pb-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Company Information</h2>
@@ -1051,6 +1131,13 @@ export default function InsuranceForm() {
           </div>
         </div>
       )}
+
+      {/* Property Data Modal */}
+      <PropertyDataModal
+        isOpen={showPropertyModal}
+        onClose={() => setShowPropertyModal(false)}
+        data={propertyData?.data || {}}
+      />
     </div>
   );
 }
