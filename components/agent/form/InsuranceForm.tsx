@@ -251,106 +251,198 @@ export default function InsuranceForm() {
     setAdditionalInterests(additionalInterests.filter(ai => ai.id !== id));
   };
 
-  return (
-    <div className="bg-white rounded-2xl shadow-lg p-8">
-      {/* View Property Data Button */}
-      {propertyData && (
-        <div className="mb-6 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setShowPropertyModal(true)}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors flex items-center gap-2"
-          >
-            <Eye className="w-4 h-4" />
-            View Property Data
-          </button>
-        </div>
-      )}
+  const handleApplyPropertyData = (propertyData: any) => {
+    const data = propertyData || {};
+    const matchedAddress = data.matchedAddress || {};
+    const mailingAddress = data.mailingAddress || {};
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Address Search Section */}
-        <AddressSearch
-          onAddressSelect={handleAddressSelect}
-          onFetchData={handleFetchData}
-          isLoading={isFetchingData}
-        />
-        {/* Company Information Section */}
-        <div className="border-b border-gray-200 pb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Company Information</h2>
-          <div className="grid grid-cols-3 gap-4">
+    // Address Information
+    if (matchedAddress.street || data.address) {
+      const fullAddress = data.address || data.fullAddress || 
+        `${matchedAddress.street || ''}, ${matchedAddress.city || ''}, ${matchedAddress.state || ''} ${matchedAddress.zipcode || ''}`.trim();
+      setValue('address', fullAddress);
+    }
+    
+    // Mailing Address
+    if (mailingAddress.fullAddress || data.fullMailingAddress) {
+      setValue('mailingAddress', mailingAddress.fullAddress || data.fullMailingAddress);
+    }
+
+    // Corporation Information
+    if (data.corporationName) setValue('corporationName', data.corporationName);
+    if (data.ownerFullName || data.deedOwnerFullName) {
+      setValue('contactName', data.ownerFullName || data.deedOwnerFullName);
+    }
+    
+    // Property Details
+    if (data.yearBuilt) setValue('yearBuilt', String(data.yearBuilt));
+    if (data.buildingSqft || data.totalSqFootage) {
+      setValue('totalSqFootage', String(data.buildingSqft || data.totalSqFootage));
+    }
+    if (data.construction_type || data.constructionType) {
+      setValue('constructionType', data.construction_type || data.constructionType);
+    }
+    if (data.canopy) setValue('canopy', String(data.canopy));
+    if (data.canopySqft) setValue('canopy', String(data.canopySqft));
+    
+    // Ownership Type
+    if (data.ownershipType) {
+      const ownershipMap: { [key: string]: string } = {
+        'Owner': 'Owner',
+        'Tenant': 'Tenant',
+        'Lessor': "Lessor's Risk",
+        'Triple Net': 'Triple Net Lease'
+      };
+      const mappedType = ownershipMap[data.ownershipType] || data.ownershipType;
+      setValue('ownershipType', mappedType);
+    }
+    
+    // Applicant Type
+    if (data.companyFlag === 'Y' || data.companyFlag === true) {
+      setValue('applicantType', 'corporation');
+    } else if (data.ownerFullName && !data.corporationName) {
+      setValue('applicantType', 'individual');
+    }
+    
+    // Building Coverage
+    if (data.assessedValue) setValue('building', String(data.assessedValue));
+    
+    // DBA
+    if (data.dba) setValue('dba', data.dba);
+    
+    // Protection Class
+    if (data.protectionClass) setValue('protectionClass', String(data.protectionClass));
+    
+    // Additional property details
+    if (data.storiesNumber) {
+      // Could map to a relevant field if needed
+    }
+    if (data.exteriorWalls) {
+      // Could map to construction type if needed
+    }
+    
+    // Show success message
+    alert('Property data has been applied to the form!');
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-4 pb-6">
+      {/* MAIN FORM - Full Width, Prominently at Top - Matching Frame Design */}
+      <div className="border-2 border-green-100 shadow-xl bg-white rounded-xl">
+        {/* Sticky Header - Matching Frame */}
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-green-50 to-white border-b-2 border-green-100 shadow-sm rounded-t-xl px-5 pt-4 pb-3">
+          <div className="flex items-center justify-between">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Corporation Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...register('corporationName', { required: 'Corporation Name is required' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Enter corporation name"
-              />
-              {errors.corporationName && (
-                <p className="text-red-600 text-sm mt-1">{errors.corporationName.message}</p>
-              )}
+              <h1 className="text-2xl font-bold text-gray-900">Convenience Store Insurance Application</h1>
+              <p className="text-xs text-gray-600 mt-0.5">Complete the form below to submit your application</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contact Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...register('contactName', { required: 'Contact Name is required' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Enter contact name"
-              />
-              {errors.contactName && (
-                <p className="text-red-600 text-sm mt-1">{errors.contactName.message}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contact Number <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...register('contactNumber', { required: 'Contact Number is required' })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Enter contact number"
-              />
-              {errors.contactNumber && (
-                <p className="text-red-600 text-sm mt-1">{errors.contactNumber.message}</p>
-              )}
-            </div>
+            {propertyData && (
+              <button
+                type="button"
+                onClick={() => setShowPropertyModal(true)}
+                className="bg-green-600 hover:bg-green-700 text-white h-9 px-4 flex items-center gap-2 shadow-md rounded-lg transition-colors text-sm"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                View Property Data
+              </button>
+            )}
           </div>
-          
-          <div className="grid grid-cols-5 gap-4 mt-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contact Email <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...register('contactEmail', { required: 'Contact Email is required' })}
-                type="email"
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Enter email address"
+        </div>
+        
+        <div className="p-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {/* Property Address Lookup - Integrated at Top of Form - Matching Frame */}
+            <div className="bg-green-50/50 border-2 border-green-200 rounded-xl p-4">
+              <AddressSearch
+                onAddressSelect={handleAddressSelect}
+                onFetchData={handleFetchData}
+                isLoading={isFetchingData}
               />
-              {errors.contactEmail && (
-                <p className="text-red-600 text-sm mt-1">{errors.contactEmail.message}</p>
-              )}
             </div>
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Lead Source <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...register('leadSource', { required: 'Lead Source is required' })}
-                type="text"
-                value={watch('leadSource') || ''}
-                onChange={(e) => {
-                  setValue('leadSource', e.target.value);
-                  setShowLeadSourceDropdown(true);
-                }}
-                onFocus={() => setShowLeadSourceDropdown(true)}
-                onBlur={() => setTimeout(() => setShowLeadSourceDropdown(false), 200)}
-                placeholder="Type to search..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
+            {/* Corporation Details - Row 1 - Matching Frame Design */}
+            <div>
+              <label className="text-sm font-semibold mb-3 block text-gray-900">Corporation Details</label>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label htmlFor="corporationName" className="text-sm font-medium text-gray-700">
+                    Corporation Name *
+                  </label>
+                  <input
+                    id="corporationName"
+                    {...register('corporationName', { required: 'Corporation Name is required' })}
+                    placeholder="Enter corporation name"
+                    className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  />
+                  {errors.corporationName && (
+                    <p className="text-red-600 text-sm mt-1">{errors.corporationName.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="contactName" className="text-sm font-medium text-gray-700">
+                    Contact Name *
+                  </label>
+                  <input
+                    id="contactName"
+                    {...register('contactName', { required: 'Contact Name is required' })}
+                    placeholder="Enter contact name"
+                    className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  />
+                  {errors.contactName && (
+                    <p className="text-red-600 text-sm mt-1">{errors.contactName.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="contactNumber" className="text-sm font-medium text-gray-700">
+                    Contact Number *
+                  </label>
+                  <input
+                    id="contactNumber"
+                    {...register('contactNumber', { required: 'Contact Number is required' })}
+                    placeholder="Enter contact number"
+                    className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  />
+                  {errors.contactNumber && (
+                    <p className="text-red-600 text-sm mt-1">{errors.contactNumber.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Corporation Details - Row 2 - Matching Frame Design */}
+            <div className="grid grid-cols-4 gap-3">
+              <div>
+                <label htmlFor="contactEmail" className="text-sm font-medium text-gray-700">
+                  Contact Email *
+                </label>
+                <input
+                  id="contactEmail"
+                  {...register('contactEmail', { required: 'Contact Email is required' })}
+                  type="email"
+                  placeholder="Enter email address"
+                  className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                />
+                {errors.contactEmail && (
+                  <p className="text-red-600 text-sm mt-1">{errors.contactEmail.message}</p>
+                )}
+              </div>
+              <div className="relative">
+                <label htmlFor="leadSource" className="text-sm font-medium text-gray-700">
+                  Lead Source *
+                </label>
+                <input
+                  id="leadSource"
+                  {...register('leadSource', { required: 'Lead Source is required' })}
+                  type="text"
+                  value={watch('leadSource') || ''}
+                  onChange={(e) => {
+                    setValue('leadSource', e.target.value);
+                    setShowLeadSourceDropdown(true);
+                  }}
+                  onFocus={() => setShowLeadSourceDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowLeadSourceDropdown(false), 200)}
+                  placeholder="Enter lead source"
+                  className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                />
               {showLeadSourceDropdown && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto">
                   {leadSourceOptions
@@ -374,230 +466,249 @@ export default function InsuranceForm() {
                 <p className="text-red-600 text-sm mt-1">{errors.leadSource.message}</p>
               )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Proposed Effective Date
-              </label>
-              <input
-                {...register('proposedEffectiveDate')}
-                type="date"
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Prior Carrier
-              </label>
-              <input
-                {...register('priorCarrier')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Enter prior carrier"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Premium
-              </label>
-              <input
-                {...register('targetPremium')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Enter target premium"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Applicant Type Section */}
-        <div className="border-b border-gray-200 pb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Applicant Type</h2>
-          <div className="flex flex-wrap gap-4">
-            {[
-              { value: 'individual', label: 'Individual' },
-              { value: 'partnership', label: 'Partnership' },
-              { value: 'corporation', label: 'Corporation' },
-              { value: 'jointVenture', label: 'Joint Venture' },
-              { value: 'llc', label: 'LLC' },
-              { value: 'other', label: 'Other' }
-            ].map((option) => (
-              <label key={option.value} className="flex items-center">
-                <input
-                  type="radio"
-                  {...register('applicantType', { required: 'Please select applicant type' })}
-                  value={option.value}
-                  className="mr-2 text-emerald-600 focus:ring-emerald-500"
-                />
-                <span className="text-sm text-gray-700">{option.label}</span>
-              </label>
-            ))}
-          </div>
-          {errors.applicantType && (
-            <p className="text-red-600 text-sm mt-2">{errors.applicantType.message}</p>
-          )}
-        </div>
-
-        {/* Ownership Type Section */}
-        <div className="border-b border-gray-200 pb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Ownership Type</h2>
-          <div className="grid grid-cols-4 gap-4">
-            {[
-              { value: 'Owner', label: 'Owner' },
-              { value: 'Tenant', label: 'Tenant' },
-              { value: "Lessor's Risk", label: "Lessor's Risk" },
-              { value: 'Triple Net Lease', label: 'Triple Net Lease' }
-            ].map((option) => (
-              <label key={option.value} className="flex items-center p-3 bg-gray-50 border-2 border-gray-300 rounded-xl cursor-pointer hover:border-emerald-500 transition-colors">
-                <input
-                  type="radio"
-                  {...register('ownershipType')}
-                  value={option.value}
-                  className="mr-2 text-emerald-600 focus:ring-emerald-500"
-                />
-                <span className="font-medium text-gray-700">{option.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Operations Section */}
-        <div className="border-b border-gray-200 pb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Operations</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Operation Description
-              </label>
-              <textarea
-                {...register('operationDescription')}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Describe your business operations..."
-              />
-            </div>
-            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">DBA</label>
+                <label htmlFor="proposedEffectiveDate" className="text-sm font-medium text-gray-700">
+                  Proposed Effective Date
+                </label>
                 <input
-                  {...register('dba')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="Enter DBA (Doing Business As)"
+                  id="proposedEffectiveDate"
+                  {...register('proposedEffectiveDate')}
+                  type="date"
+                  className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                <label htmlFor="priorCarrier" className="text-sm font-medium text-gray-700">
+                  Prior Carrier
+                </label>
                 <input
-                  {...register('address')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="Enter property address"
+                  id="priorCarrier"
+                  {...register('priorCarrier')}
+                  placeholder="Enter prior carrier"
+                  className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Ownership Type - Matching Frame Design */}
+            <div>
+              <label className="text-sm font-semibold mb-3 block text-gray-900">Ownership Type</label>
+              <div className="grid grid-cols-4 gap-2.5">
+                {["Owner", "Tenant", "Lessor's Risk", "Triple Net Lease"].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setValue('ownershipType', type)}
+                    className={`p-3 border-2 rounded-lg text-xs font-medium transition-all ${
+                      watch('ownershipType') === type
+                        ? "border-green-600 bg-green-50 text-green-700 shadow-md"
+                        : "border-gray-200 hover:border-green-300 bg-white"
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Applicant Type & Operation Description - Matching Frame Design */}
+            <div className="grid grid-cols-5 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Applicant is</label>
+                <div className="space-y-1.5">
+                  {["Individual", "Partnership", "Corporation", "Joint Venture", "LLC", "Other"].map((type) => (
+                    <label key={type} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 p-1.5 rounded">
+                      <input
+                        type="radio"
+                        {...register('applicantType', { required: 'Please select applicant type' })}
+                        value={type.toLowerCase()}
+                        className="text-green-600"
+                      />
+                      {type}
+                    </label>
+                  ))}
+                </div>
+                {errors.applicantType && (
+                  <p className="text-red-600 text-sm mt-2">{errors.applicantType.message}</p>
+                )}
+              </div>
+              <div className="col-span-2">
+                <label htmlFor="operationDescription" className="text-sm font-medium text-gray-700">
+                  Operation Description
+                </label>
+                <textarea
+                  id="operationDescription"
+                  {...register('operationDescription')}
+                  placeholder="Describe your business operations..."
+                  rows={4}
+                  className="mt-1.5 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                />
+              </div>
+              <div className="col-span-2 space-y-3">
+                <div>
+                  <label htmlFor="dba" className="text-sm font-medium text-gray-700">
+                    DBA
+                  </label>
+                  <input
+                    id="dba"
+                    {...register('dba')}
+                    placeholder="Enter DBA (Doing Business As)"
+                    className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="address" className="text-sm font-medium text-gray-700">
+                    Address
+                  </label>
+                  <input
+                    id="address"
+                    {...register('address')}
+                    placeholder="Enter property address"
+                    className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="mailingAddress" className="text-sm font-medium text-gray-700">
+                    Mailing Address
+                  </label>
+                  <input
+                    id="mailingAddress"
+                    {...register('mailingAddress')}
+                    placeholder="Enter mailing address"
+                    className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Property Details - Row 1 - Matching Frame Design */}
+            <div>
+              <label className="text-sm font-semibold mb-3 block text-gray-900">Property Details</label>
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label htmlFor="hoursOfOperation" className="text-sm font-medium text-gray-700">
+                    Hours of Operation
+                  </label>
+                  <input
+                    id="hoursOfOperation"
+                    {...register('hoursOfOperation')}
+                    placeholder="Enter hours"
+                    className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="noOfMPDs" className="text-sm font-medium text-gray-700">
+                    No. Of MPDs
+                  </label>
+                  <input
+                    id="noOfMPDs"
+                    {...register('noOfMPDs')}
+                    placeholder="Enter number"
+                    className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="constructionType" className="text-sm font-medium text-gray-700">
+                    Construction Type
+                  </label>
+                  <input
+                    id="constructionType"
+                    {...register('constructionType')}
+                    placeholder="Enter type"
+                    className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="yearsInBusiness" className="text-sm font-medium text-gray-700">
+                    Years in Business
+                  </label>
+                  <input
+                    id="yearsInBusiness"
+                    {...register('yearsInBusiness')}
+                    placeholder="Enter years"
+                    className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Property Details - Row 2 - Matching Frame Design */}
+            <div className="grid grid-cols-5 gap-3">
+              <div>
+                <label htmlFor="yearsAtLocation" className="text-sm font-medium text-gray-700">
+                  Years at this Location
+                </label>
+                <input
+                  id="yearsAtLocation"
+                  {...register('yearsAtLocation')}
+                  placeholder="Years"
+                  className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mailing Address</label>
+                <label htmlFor="yearBuilt" className="text-sm font-medium text-gray-700">
+                  Year built
+                </label>
                 <input
-                  {...register('mailingAddress')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="Enter mailing address"
+                  id="yearBuilt"
+                  {...register('yearBuilt')}
+                  placeholder="Year"
+                  className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="yearOfLatestUpdate" className="text-sm font-medium text-gray-700">
+                  Year of latest update
+                </label>
+                <input
+                  id="yearOfLatestUpdate"
+                  {...register('yearOfLatestUpdate')}
+                  placeholder="Year"
+                  className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="totalSqFootage" className="text-sm font-medium text-gray-700">
+                  Total sq. Footage
+                </label>
+                <input
+                  id="totalSqFootage"
+                  {...register('totalSqFootage')}
+                  placeholder="Sq ft"
+                  className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="anyLeasedOutSpace" className="text-sm font-medium text-gray-700">
+                  Any Newest sid business
+                </label>
+                <input
+                  id="anyLeasedOutSpace"
+                  {...register('anyLeasedOutSpace')}
+                  placeholder="Yes/No"
+                  className="mt-1.5 h-9 w-full px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
                 />
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Property Details Section */}
-        <div className="border-b border-gray-200 pb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Property Details</h2>
-          <div className="grid grid-cols-4 gap-4">
+            {/* Protection Class - Matching Frame Design */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Hours of Operation</label>
+              <label htmlFor="protectionClass" className="text-sm font-medium text-gray-700">
+                Protection Class
+              </label>
               <input
-                {...register('hoursOfOperation')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Enter hours"
+                id="protectionClass"
+                {...register('protectionClass')}
+                placeholder="Enter protection class"
+                className="mt-2 h-11 w-full px-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">No. Of MPDs</label>
-              <input
-                {...register('noOfMPDs')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Enter number"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Construction Type</label>
-              <input
-                {...register('constructionType')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Enter type"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Years Exp. in Business</label>
-              <input
-                {...register('yearsInBusiness')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Enter years"
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-5 gap-4 mt-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Years at this Location</label>
-              <input
-                {...register('yearsAtLocation')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Enter years"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Year Built</label>
-              <input
-                {...register('yearBuilt')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Year"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Year of Latest Update</label>
-              <input
-                {...register('yearOfLatestUpdate')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Year"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Total Sq. Footage</label>
-              <input
-                {...register('totalSqFootage')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Sq ft"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Any Leased Out Space</label>
-              <input
-                {...register('anyLeasedOutSpace')}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="Yes/No"
-              />
-            </div>
-          </div>
-          
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Protection Class</label>
-            <input
-              {...register('protectionClass')}
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              placeholder="Enter protection class"
-            />
-          </div>
-        </div>
 
         {/* Security Systems Section */}
-        <div className="border-b border-gray-200 pb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Security Systems</h2>
-          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-            <div className="flex items-center gap-6 text-sm">
+        <div className="border-b border-gray-200 pb-4">
+          <h2 className="text-base font-bold text-gray-900 mb-3">Security Systems</h2>
+          <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+            <div className="flex items-center gap-4 text-xs">
               <span className="font-medium text-gray-700">Alarm:</span>
               <span className="text-gray-700">Burglar</span>
               <label className="flex items-center">
@@ -638,10 +749,10 @@ export default function InsuranceForm() {
         </div>
 
         {/* Property Coverage & General Liability Table */}
-        <div className="border-b border-gray-200 pb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Property Coverage & General Liability</h2>
+        <div className="border-b border-gray-200 pb-4">
+          <h2 className="text-base font-bold text-gray-900 mb-3">Property Coverage & General Liability</h2>
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-gray-300 text-sm">
+            <table className="w-full border-collapse border border-gray-300 text-xs">
               <thead>
                 <tr className="bg-gray-100">
                   <th colSpan={2} className="border border-gray-300 px-3 py-2 text-center font-semibold text-gray-800">
@@ -856,9 +967,9 @@ export default function InsuranceForm() {
         </div>
 
         {/* Additional Interests Section */}
-        <div className="border-b border-gray-200 pb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Additional Interests (Max 3)</h2>
+        <div className="border-b border-gray-200 pb-4">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-base font-bold text-gray-900">Additional Interests (Max 3)</h2>
             {additionalInterests.length < 3 && (
               <button
                 type="button"
@@ -940,9 +1051,9 @@ export default function InsuranceForm() {
         </div>
 
         {/* Buildings Section */}
-        <div className="border-b border-gray-200 pb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Buildings</h2>
+        <div className="border-b border-gray-200 pb-4">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-base font-bold text-gray-900">Buildings</h2>
             <button
               type="button"
               onClick={() => {
@@ -996,23 +1107,33 @@ export default function InsuranceForm() {
           )}
         </div>
 
-        {/* Submit Button */}
-        <div className="flex justify-end gap-4 pt-6">
-          <button
-            type="button"
-            onClick={() => window.history.back()}
-            className="px-6 py-3 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-8 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-semibold"
-          >
-            Submit Application
-          </button>
+            {/* Action Buttons - Matching Frame Design */}
+            <div className="flex items-center justify-between pt-4 border-t-2 border-gray-200">
+              <button 
+                type="button" 
+                onClick={() => window.history.back()} 
+                className="h-9 px-5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+              >
+                Reset Form
+              </button>
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  className="border-green-600 text-green-600 hover:bg-green-50 h-9 px-5 rounded-lg transition-colors text-sm"
+                >
+                  Save as Draft
+                </button>
+                <button
+                  type="submit"
+                  className="bg-green-600 hover:bg-green-700 h-9 px-6 text-sm font-semibold rounded-lg transition-colors text-white"
+                >
+                  Submit Application
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
 
       {/* Building Modal */}
       {showBuildingModal && (
@@ -1137,6 +1258,7 @@ export default function InsuranceForm() {
         isOpen={showPropertyModal}
         onClose={() => setShowPropertyModal(false)}
         data={propertyData?.data || {}}
+        onApply={handleApplyPropertyData}
       />
     </div>
   );

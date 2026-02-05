@@ -25,11 +25,7 @@ export default async function FormPage() {
         userName={currentUser?.name || 'Agent'}
       />
       <main className="flex-1 overflow-y-auto">
-        <div className="p-8">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Convenience Store Insurance Application</h1>
-            <p className="text-gray-600">Complete the form below to submit your application.</p>
-          </div>
+        <div className="p-5">
           <InsuranceForm />
         </div>
       </main>

@@ -19,46 +19,51 @@ export default function AddressSearch({ onAddressSelect, onFetchData, isLoading 
   const [searchAddress, setSearchAddress] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const autocompleteServiceRef = useRef<any>(null);
 
   useEffect(() => {
-    // Initialize Google Maps Autocomplete
-    const timer = setTimeout(() => {
-      if (window.google?.maps?.places && addressInputRef.current) {
+    // Wait for Google Maps to load and initialize AutocompleteService only
+    const checkGoogleMaps = () => {
+      if (window.google?.maps?.places) {
         try {
-          const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
-            types: ['address'],
-            componentRestrictions: { country: 'us' }
-          });
-          
-          autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            if (place.formatted_address) {
-              setSearchAddress(place.formatted_address);
-              setShowSuggestions(false);
-              onAddressSelect(place.formatted_address);
-            }
-          });
-          
-          // Initialize autocomplete service for suggestions
+          // Only use AutocompleteService - don't attach widget to input to avoid blocking
           autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
-          
-          console.log('✅ Google Autocomplete initialized');
+          setIsGoogleMapsLoaded(true);
+          console.log('✅ Google Autocomplete Service initialized');
         } catch (err) {
-          console.log('Autocomplete initialization failed:', err);
+          console.error('❌ Autocomplete Service initialization failed:', err);
+          setIsGoogleMapsLoaded(false);
         }
+      } else {
+        // Retry after a short delay if Google Maps isn't loaded yet
+        setTimeout(checkGoogleMaps, 200);
       }
-    }, 1000);
+    };
 
-    return () => clearTimeout(timer);
-  }, [onAddressSelect]);
+    // Start checking immediately and also after a delay
+    const timer1 = setTimeout(checkGoogleMaps, 100);
+    const timer2 = setTimeout(checkGoogleMaps, 1000);
+    const timer3 = setTimeout(() => {
+      if (!isGoogleMapsLoaded) {
+        console.warn('⚠️ Google Maps not loaded after 3 seconds. Check API key.');
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [isGoogleMapsLoaded]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchAddress(value);
     
-    if (value.length >= 3 && autocompleteServiceRef.current) {
+    // Always allow typing - don't block input
+    if (value.length >= 3 && autocompleteServiceRef.current && window.google?.maps?.places) {
       const request = {
         input: value,
         componentRestrictions: { country: 'us' }
@@ -71,6 +76,9 @@ export default function AddressSearch({ onAddressSelect, onFetchData, isLoading 
         } else {
           setSuggestions([]);
           setShowSuggestions(false);
+          if (status !== 'ZERO_RESULTS') {
+            console.warn('⚠️ Autocomplete status:', status);
+          }
         }
       });
     } else {
@@ -92,80 +100,109 @@ export default function AddressSearch({ onAddressSelect, onFetchData, isLoading 
   };
 
   return (
-    <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-200">
-      <div className="flex items-center gap-2 mb-3">
-        <MapPin className="w-5 h-5 text-emerald-600" />
-        <h3 className="text-lg font-semibold text-gray-900">Property Address Lookup</h3>
-      </div>
-      <p className="text-sm text-gray-600 mb-4">Enter property address to fetch enrichment data.</p>
-      
-      <div className="flex gap-3">
-        <div className="flex-1 relative">
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-            <Search className="w-5 h-5 text-gray-400" />
+    <div className="relative">
+      <div className="p-6 border-2 border-green-100 bg-gradient-to-br from-green-50/50 to-white rounded-xl">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="p-2 bg-green-100 rounded-xl">
+            <MapPin className="w-5 h-5 text-green-600" />
           </div>
-          <input
-            ref={addressInputRef}
-            type="text"
-            value={searchAddress}
-            onChange={handleInputChange}
-            onFocus={() => {
-              if (suggestions.length > 0) setShowSuggestions(true);
-            }}
-            placeholder="Start typing address... (e.g., 280 Griffin St, McDonough, GA)"
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-          />
-          
-          {/* Suggestions Dropdown */}
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-              {suggestions.map((prediction, index) => (
-                <div
-                  key={index}
-                  onClick={() => handleSuggestionClick(prediction)}
-                  className="px-4 py-3 hover:bg-emerald-50 cursor-pointer border-b border-gray-100 last:border-b-0 flex items-start gap-3"
-                >
-                  <MapPin className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-900">
-                      {prediction.structured_formatting.main_text}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {prediction.structured_formatting.secondary_text}
-                    </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">Property Address Lookup</h3>
+            <p className="text-xs text-gray-500">
+              Enter property address to fetch enrichment data
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <div className="flex-1 relative">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                ref={addressInputRef}
+                type="text"
+                value={searchAddress}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleFetchData();
+                  }
+                }}
+                onFocus={() => {
+                  if (suggestions.length > 0) setShowSuggestions(true);
+                }}
+                placeholder="Start typing address... (e.g., 280 Griffin St, McDonough, GA)"
+                className="w-full pl-10 pr-3 h-12 border border-green-200 rounded-lg focus:border-green-400 focus:ring-green-400 disabled:opacity-50 outline-none text-sm"
+                disabled={isLoading}
+                autoComplete="off"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck="false"
+              />
+              {!isGoogleMapsLoaded && searchAddress.length >= 3 && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                    ⚠️ API key needed
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-          )}
+
+            {/* Autocomplete Suggestions - Matching Frame */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute z-10 w-full mt-2 p-2 border border-green-200 rounded-lg shadow-lg bg-white">
+                {suggestions.map((prediction, index) => (
+                  <button
+                    key={index}
+                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-green-50 transition-colors flex items-center gap-2 text-sm"
+                    onClick={() => handleSuggestionClick(prediction)}
+                  >
+                    <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">
+                        {prediction.structured_formatting?.main_text || prediction.description}
+                      </div>
+                      {prediction.structured_formatting?.secondary_text && (
+                        <div className="text-xs text-gray-500">
+                          {prediction.structured_formatting.secondary_text}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={handleFetchData}
+            disabled={!searchAddress.trim() || isLoading}
+            className="h-12 px-6 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Fetching...
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4" />
+                Fetch Data
+              </>
+            )}
+          </button>
         </div>
-        
-        <button
-          onClick={handleFetchData}
-          disabled={!searchAddress.trim() || isLoading}
-          className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 font-medium"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Loading...</span>
-            </>
-          ) : (
-            <>
-              <Search className="w-5 h-5" />
-              <span>Fetch Data</span>
-            </>
-          )}
-        </button>
+
+        {searchAddress && (
+          <div className="mt-4 flex items-center gap-2">
+            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              {searchAddress}
+            </span>
+          </div>
+        )}
       </div>
-      
-      {/* Selected Address Display */}
-      {searchAddress && !showSuggestions && (
-        <div className="mt-3 flex items-center gap-2 text-sm text-gray-700">
-          <MapPin className="w-4 h-4 text-emerald-600" />
-          <span>{searchAddress}</span>
-        </div>
-      )}
     </div>
   );
 }
