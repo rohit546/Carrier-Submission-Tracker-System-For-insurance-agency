@@ -51,3 +51,8 @@ next-env.d.ts
 
 # OS
 Thumbs.db
+
+# Old directories that should not be included in builds
+Prefill-insurance-Forms-automated-data-prefill-system-master*/
+Prefill-insurance-Forms-automated-data-prefill-system-master (1)/
+frame/
