@@ -226,7 +226,30 @@ export default function PropertyDataModal({ isOpen, onClose, data, onApply }: Pr
     const [streetViewLoading, setStreetViewLoading] = useState(true);
     const lat = data.latitude || data.coordinates?.lat || 33.580;
     const lng = data.longitude || data.coordinates?.lng || -84.386;
-    const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+    
+    // Get API key: try env var first, then extract from loaded Google Maps script
+    const getGoogleMapsApiKey = () => {
+      // First try environment variable (embedded at build time)
+      if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+        return process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      }
+      
+      // If not available, try to extract from the loaded Google Maps script
+      if (typeof window !== 'undefined') {
+        const scripts = document.querySelectorAll('script[src*="maps.googleapis.com"]');
+        for (const script of scripts) {
+          const src = (script as HTMLScriptElement).src;
+          const match = src.match(/[?&]key=([^&]+)/);
+          if (match && match[1]) {
+            return decodeURIComponent(match[1]);
+          }
+        }
+      }
+      
+      return '';
+    };
+    
+    const googleMapsApiKey = getGoogleMapsApiKey();
 
     useEffect(() => {
       if (view === 'measurement') {
