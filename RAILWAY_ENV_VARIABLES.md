@@ -40,7 +40,26 @@ COLUMBIA_WEBHOOK_URL=https://columbia-submission-bot-production.up.railway.app/w
 - **Description**: URLs for RPA bot webhooks
 - **Note**: Only set if you need to override the defaults
 
-### 5. Base URL
+### 5. Google Maps API Key
+```
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+```
+- **Required**: Yes (for address autocomplete, maps, and Street View)
+- **Description**: Google Maps JavaScript API key with Places, Geocoding, and Street View Static APIs enabled
+- **Where to get**: 
+  1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+  2. Create or select a project
+  3. Enable these APIs:
+     - Maps JavaScript API
+     - Places API
+     - Geocoding API
+     - Street View Static API
+     - Maps Embed API
+  4. Create credentials (API Key)
+  5. Restrict the API key to your domain (optional but recommended)
+- **Important**: This must be set BEFORE building, as Next.js embeds `NEXT_PUBLIC_` variables at build time
+
+### 6. Base URL
 ```
 NEXT_PUBLIC_BASE_URL=https://your-app.railway.app
 ```
@@ -94,6 +113,15 @@ EFORM_API_KEY=your-eform-api-key
 
 ## Important Notes
 
+### NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+**CRITICAL**: This environment variable must be set BEFORE the build runs. Next.js embeds `NEXT_PUBLIC_` prefixed variables into the client bundle at build time. If you add this variable after deployment:
+
+1. Add the variable in Railway
+2. **Trigger a new deployment** (Railway will rebuild automatically)
+3. The 3D maps and Street View will work after the rebuild
+
+If the variable is missing during build, you'll see "3D Street View requires Google Maps API key" error.
+
 ### GOOGLE_SERVICE_ACCOUNT_JSON Format
 The `GOOGLE_SERVICE_ACCOUNT_JSON` must be a **single-line JSON string**. 
 
@@ -114,6 +142,9 @@ The file `pdf-generator-477915-6056095f253b.json` is in `.gitignore` and should 
 
 After deployment, verify:
 - [ ] Database connection works
+- [ ] Google Maps API key is set (`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`)
+- [ ] Address autocomplete works
+- [ ] 3D maps and Street View load correctly
 - [ ] Novatae AMC sheet creation works (test with a submission)
 - [ ] RPA webhooks are receiving updates
 - [ ] Authentication (login) works
